@@ -1,3 +1,15 @@
+Temporary Branch
+================
+
+This is a temporary branch used for testing Windows Gitian builds of the master branch.  It will be removed once upstream Bitcoin Core merges some NSIS abstraction code that we're waiting on.
+
+Instructions for creating this branch:
+
+1. Merge the nsis-tarname branch of JeremyRand/bitcoin into a new branch based on master branch of namecoin/namecoin-core.
+2. Rebase the Namecoin NSIS branch against the previous result.
+3. Rebase the Namecoin Gitian Windows descriptor branch against the previous result.
+4. (Optional) Rebase any other PR's against the previous result.
+
 Namecoin Core integration/staging tree
 =====================================
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2015 The Bitcoin Core developers
+// Copyright (c) 2009-2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -11,7 +11,7 @@ namespace
 {
 /* Global secp256k1_context object used for verification. */
 secp256k1_context* secp256k1_context_verify = NULL;
-}
+} // namespace
 
 /** This function is taken from the libsecp256k1 distribution and implements
  *  DER parsing for ECDSA signatures, while supporting an arbitrary subset of
@@ -172,10 +172,7 @@ bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchS
     if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size())) {
         return false;
     }
-    if (vchSig.size() == 0) {
-        return false;
-    }
-    if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, &vchSig[0], vchSig.size())) {
+    if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, vchSig.data(), vchSig.size())) {
         return false;
     }
     /* libsecp256k1's ECDSA verification requires lower-S signatures, which have
@@ -264,17 +261,17 @@ void CExtPubKey::Decode(const unsigned char code[BIP32_EXTKEY_SIZE]) {
     pubkey.Set(code+41, code+BIP32_EXTKEY_SIZE);
 }
 
-bool CExtPubKey::Derive(CExtPubKey &out, unsigned int nChild) const {
+bool CExtPubKey::Derive(CExtPubKey &out, unsigned int _nChild) const {
     out.nDepth = nDepth + 1;
     CKeyID id = pubkey.GetID();
     memcpy(&out.vchFingerprint[0], &id, 4);
-    out.nChild = nChild;
-    return pubkey.Derive(out.pubkey, out.chaincode, nChild, chaincode);
+    out.nChild = _nChild;
+    return pubkey.Derive(out.pubkey, out.chaincode, _nChild, chaincode);
 }
 
 /* static */ bool CPubKey::CheckLowS(const std::vector<unsigned char>& vchSig) {
     secp256k1_ecdsa_signature sig;
-    if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, &vchSig[0], vchSig.size())) {
+    if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, vchSig.data(), vchSig.size())) {
         return false;
     }
     return (!secp256k1_ecdsa_signature_normalize(secp256k1_context_verify, NULL, &sig));

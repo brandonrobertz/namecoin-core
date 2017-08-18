@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015 Daniel Kraft
+// Copyright (c) 2014-2017 Daniel Kraft
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,13 +9,13 @@
 #include "consensus/validation.h"
 #include "hash.h"
 #include "dbwrapper.h"
-#include "../main.h"
 #include "script/interpreter.h"
 #include "script/names.h"
 #include "txmempool.h"
 #include "undo.h"
 #include "util.h"
 #include "utilstrencodings.h"
+#include "validation.h"
 
 /**
  * Check whether a name at nPrevHeight is expired at nHeight.  Also
@@ -145,15 +145,14 @@ CNameMemPool::remove (const CTxMemPoolEntry& entry)
 }
 
 void
-CNameMemPool::removeConflicts (const CTransaction& tx,
-                               std::list<CTransaction>& removed)
+CNameMemPool::removeConflicts (const CTransaction& tx)
 {
   AssertLockHeld (pool.cs);
 
   if (!tx.IsNamecoin ())
     return;
 
-  BOOST_FOREACH (const CTxOut& txout, tx.vout)
+  for (const auto& txout : tx.vout)
     {
       const CNameScript nameOp(txout.scriptPubKey);
       if (nameOp.isNameOp () && nameOp.getNameOp () == OP_NAME_FIRSTUPDATE)
@@ -164,21 +163,21 @@ CNameMemPool::removeConflicts (const CTransaction& tx,
             {
               const CTxMemPool::txiter mit2 = pool.mapTx.find (mit->second);
               assert (mit2 != pool.mapTx.end ());
-              pool.removeRecursive (mit2->GetTx (), removed);
+              pool.removeRecursive (mit2->GetTx (),
+                                    MemPoolRemovalReason::NAME_CONFLICT);
             }
         }
     }
 }
 
 void
-CNameMemPool::removeUnexpireConflicts (const std::set<valtype>& unexpired,
-                                       std::list<CTransaction>& removed)
+CNameMemPool::removeUnexpireConflicts (const std::set<valtype>& unexpired)
 {
   AssertLockHeld (pool.cs);
 
-  BOOST_FOREACH (const valtype& name, unexpired)
+  for (const auto& name : unexpired)
     {
-      LogPrint ("names", "unexpired: %s, mempool: %u\n",
+      LogPrint (BCLog::NAMES, "unexpired: %s, mempool: %u\n",
                 ValtypeToString (name).c_str (), mapNameRegs.count (name));
 
       const NameTxMap::const_iterator mit = mapNameRegs.find (name);
@@ -186,20 +185,20 @@ CNameMemPool::removeUnexpireConflicts (const std::set<valtype>& unexpired,
         {
           const CTxMemPool::txiter mit2 = pool.mapTx.find (mit->second);
           assert (mit2 != pool.mapTx.end ());
-          pool.removeRecursive (mit2->GetTx (), removed);
+          pool.removeRecursive (mit2->GetTx (),
+                                MemPoolRemovalReason::NAME_CONFLICT);
         }
     }
 }
 
 void
-CNameMemPool::removeExpireConflicts (const std::set<valtype>& expired,
-                                     std::list<CTransaction>& removed)
+CNameMemPool::removeExpireConflicts (const std::set<valtype>& expired)
 {
   AssertLockHeld (pool.cs);
 
-  BOOST_FOREACH (const valtype& name, expired)
+  for (const auto& name : expired)
     {
-      LogPrint ("names", "expired: %s, mempool: %u\n",
+      LogPrint (BCLog::NAMES, "expired: %s, mempool: %u\n",
                 ValtypeToString (name).c_str (), mapNameUpdates.count (name));
 
       const NameTxMap::const_iterator mit = mapNameUpdates.find (name);
@@ -207,7 +206,8 @@ CNameMemPool::removeExpireConflicts (const std::set<valtype>& expired,
         {
           const CTxMemPool::txiter mit2 = pool.mapTx.find (mit->second);
           assert (mit2 != pool.mapTx.end ());
-          pool.removeRecursive (mit2->GetTx (), removed);
+          pool.removeRecursive (mit2->GetTx (),
+                                MemPoolRemovalReason::NAME_CONFLICT);
         }
     }
 }
@@ -226,7 +226,7 @@ CNameMemPool::check (const CCoinsView& coins) const
 
   std::set<valtype> nameRegs;
   std::set<valtype> nameUpdates;
-  BOOST_FOREACH (const CTxMemPoolEntry& entry, pool.mapTx)
+  for (const auto& entry : pool.mapTx)
     {
       const uint256 txHash = entry.GetTx ().GetHash ();
       if (entry.isNameNew ())
@@ -282,9 +282,9 @@ CNameMemPool::check (const CCoinsView& coins) const
   /* Check that nameRegs and nameUpdates are disjoint.  They must be since
      a name can only be in either category, depending on whether it exists
      at the moment or not.  */
-  BOOST_FOREACH (const valtype& name, nameRegs)
+  for (const auto& name : nameRegs)
     assert (nameUpdates.count (name) == 0);
-  BOOST_FOREACH (const valtype& name, nameUpdates)
+  for (const auto& name : nameUpdates)
     assert (nameRegs.count (name) == 0);
 }
 
@@ -301,7 +301,7 @@ CNameMemPool::checkTx (const CTransaction& tx) const
      since the current mempool implementation does not like it.  (We keep
      track of only a single update tx for each name.)  */
 
-  BOOST_FOREACH (const CTxOut& txout, tx.vout)
+  for (const auto& txout : tx.vout)
     {
       const CNameScript nameOp(txout.scriptPubKey);
       if (!nameOp.isNameOp ())
@@ -344,6 +344,42 @@ CNameMemPool::checkTx (const CTransaction& tx) const
 }
 
 /* ************************************************************************** */
+/* CNameConflictTracker.  */
+
+namespace
+{
+
+void
+ConflictTrackerNotifyEntryRemoved (CNameConflictTracker* tracker,
+                                   CTransactionRef txRemoved,
+                                   MemPoolRemovalReason reason)
+{
+  if (reason == MemPoolRemovalReason::NAME_CONFLICT)
+    tracker->AddConflictedEntry (txRemoved);
+}
+
+} // anonymous namespace
+
+CNameConflictTracker::CNameConflictTracker (CTxMemPool &p)
+  : txNameConflicts(), pool(p)
+{
+  pool.NotifyEntryRemoved.connect (
+    boost::bind (&ConflictTrackerNotifyEntryRemoved, this, _1, _2));
+}
+
+CNameConflictTracker::~CNameConflictTracker ()
+{
+  pool.NotifyEntryRemoved.disconnect (
+    boost::bind (&ConflictTrackerNotifyEntryRemoved, this, _1, _2));
+}
+
+void
+CNameConflictTracker::AddConflictedEntry (CTransactionRef txRemoved)
+{
+  txNameConflicts.emplace_back (std::move (txRemoved));
+}
+
+/* ************************************************************************** */
 
 bool
 CheckNameTransaction (const CTransaction& tx, unsigned nHeight,
@@ -365,15 +401,15 @@ CheckNameTransaction (const CTransaction& tx, unsigned nHeight,
 
   int nameIn = -1;
   CNameScript nameOpIn;
-  CCoins coinsIn;
+  Coin coinIn;
   for (unsigned i = 0; i < tx.vin.size (); ++i)
     {
       const COutPoint& prevout = tx.vin[i].prevout;
-      CCoins coins;
-      if (!view.GetCoins (prevout.hash, coins))
-        return error ("%s: failed to fetch input coins for %s", __func__, txid);
+      Coin coin;
+      if (!view.GetCoin (prevout, coin))
+        return error ("%s: failed to fetch input coin for %s", __func__, txid);
 
-      const CNameScript op(coins.vout[prevout.n].scriptPubKey);
+      const CNameScript op(coin.out.scriptPubKey);
       if (op.isNameOp ())
         {
           if (nameIn != -1)
@@ -381,7 +417,7 @@ CheckNameTransaction (const CTransaction& tx, unsigned nHeight,
                                          " transaction %s", __func__, txid));
           nameIn = i;
           nameOpIn = op;
-          coinsIn = coins;
+          coinIn = coin;
         }
     }
 
@@ -484,7 +520,7 @@ CheckNameTransaction (const CTransaction& tx, unsigned nHeight,
       /* This is an internal consistency check.  If everything is fine,
          the input coins from the UTXO database should match the
          name database.  */
-      assert (static_cast<unsigned> (coinsIn.nHeight) == oldName.getHeight ());
+      assert (static_cast<unsigned> (coinIn.nHeight) == oldName.getHeight ());
       assert (tx.vin[nameIn].prevout == oldName.getUpdateOutpoint ());
 
       return true;
@@ -501,8 +537,8 @@ CheckNameTransaction (const CTransaction& tx, unsigned nHeight,
      to the mempool.  */
   if (!fMempool)
     {
-      assert (static_cast<unsigned> (coinsIn.nHeight) != MEMPOOL_HEIGHT);
-      if (coinsIn.nHeight + MIN_FIRSTUPDATE_DEPTH > nHeight)
+      assert (static_cast<unsigned> (coinIn.nHeight) != MEMPOOL_HEIGHT);
+      if (coinIn.nHeight + MIN_FIRSTUPDATE_DEPTH > nHeight)
         return state.Invalid (error ("CheckNameTransaction: NAME_NEW"
                                      " is not mature for FIRST_UPDATE"));
     }
@@ -548,20 +584,12 @@ ApplyNameTransaction (const CTransaction& tx, unsigned nHeight,
       && type != CChainParams::BUG_FULLY_APPLY)
     {
       if (type == CChainParams::BUG_FULLY_IGNORE)
-        {
-          CCoinsModifier coins = view.ModifyCoins (txHash);
-          for (unsigned i = 0; i < tx.vout.size (); ++i)
-            {
-              const CNameScript op(tx.vout[i].scriptPubKey);
-              if (op.isNameOp () && op.isAnyUpdate ())
-                {
-                  if (!coins->IsAvailable (i) || !coins->Spend (i))
-                    LogPrintf ("ERROR: %s : spending buggy name output failed",
-                               __func__);
-                }
-            }
-        }
-
+        for (unsigned i = 0; i < tx.vout.size (); ++i)
+          {
+            const CNameScript op(tx.vout[i].scriptPubKey);
+            if (op.isNameOp () && op.isAnyUpdate ())
+              view.SpendCoin (COutPoint (txHash, i));
+          }
       return;
     }
 
@@ -580,7 +608,7 @@ ApplyNameTransaction (const CTransaction& tx, unsigned nHeight,
       if (op.isNameOp () && op.isAnyUpdate ())
         {
           const valtype& name = op.getOpName ();
-          LogPrint ("names", "Updating name at height %d: %s\n",
+          LogPrint (BCLog::NAMES, "Updating name at height %d: %s\n",
                     nHeight, ValtypeToString (name).c_str ());
 
           CNameTxUndo opUndo;
@@ -657,28 +685,25 @@ ExpireNames (unsigned nHeight, CCoinsViewCache& view, CBlockUndo& undo,
         continue;
 
       const COutPoint& out = data.getUpdateOutpoint ();
-      CCoinsModifier coins = view.ModifyCoins (out.hash);
-
-      if (!coins->IsAvailable (out.n))
+      Coin coin;
+      if (!view.GetCoin(out, coin))
         return error ("%s : name coin for '%s' is not available",
                       __func__, nameStr.c_str ());
-      const CNameScript nameOp(coins->vout[out.n].scriptPubKey);
+      const CNameScript nameOp(coin.out.scriptPubKey);
       if (!nameOp.isNameOp () || !nameOp.isAnyUpdate ()
           || nameOp.getOpName () != *i)
         return error ("%s : name coin to be expired is wrong script", __func__);
 
-      CTxInUndo txUndo;
-      if (!coins->Spend (out.n, &txUndo))
-        return error ("%s : failed to spend name coin for '%s'",
-                      __func__, nameStr.c_str ());
-      undo.vexpired.push_back (txUndo);
+      if (!view.SpendCoin (out, &coin))
+        return error ("%s : spending name coin failed", __func__);
+      undo.vexpired.push_back (coin);
     }
 
   return true;
 }
 
 bool
-UnexpireNames (unsigned nHeight, const CBlockUndo& undo, CCoinsViewCache& view,
+UnexpireNames (unsigned nHeight, CBlockUndo& undo, CCoinsViewCache& view,
                std::set<valtype>& names)
 {
   names.clear ();
@@ -687,10 +712,10 @@ UnexpireNames (unsigned nHeight, const CBlockUndo& undo, CCoinsViewCache& view,
   if (nHeight == 0)
     return true;
 
-  std::vector<CTxInUndo>::const_reverse_iterator i;
+  std::vector<Coin>::reverse_iterator i;
   for (i = undo.vexpired.rbegin (); i != undo.vexpired.rend (); ++i)
     {
-      const CNameScript nameOp(i->txout.scriptPubKey);
+      const CNameScript nameOp(i->out.scriptPubKey);
       if (!nameOp.isNameOp () || !nameOp.isAnyUpdate ())
         return error ("%s : wrong script to be unexpired", __func__);
 
@@ -709,7 +734,8 @@ UnexpireNames (unsigned nHeight, const CBlockUndo& undo, CCoinsViewCache& view,
                       " or it was already expired before the current height",
                       __func__, ValtypeToString (name).c_str ());
 
-      if (!ApplyTxInUndo (*i, view, data.getUpdateOutpoint ()))
+      if (ApplyTxInUndo (std::move(*i), view,
+                         data.getUpdateOutpoint ()) != DISCONNECT_OK)
         return error ("%s : failed to undo name coin spending", __func__);
     }
 

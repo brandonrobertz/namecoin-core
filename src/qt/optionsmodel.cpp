@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2015 The Bitcoin Core developers
+// Copyright (c) 2011-2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -13,9 +13,11 @@
 
 #include "amount.h"
 #include "init.h"
-#include "main.h" // For DEFAULT_SCRIPTCHECK_THREADS
+#include "validation.h" // For DEFAULT_SCRIPTCHECK_THREADS
 #include "net.h"
+#include "netbase.h"
 #include "txdb.h" // for -dbcache defaults
+#include "intro.h" 
 
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
@@ -34,7 +36,7 @@ OptionsModel::OptionsModel(QObject *parent, bool resetSettings) :
 
 void OptionsModel::addOverriddenOption(const std::string &option)
 {
-    strOverriddenByCommandLine += QString::fromStdString(option) + "=" + QString::fromStdString(mapArgs[option]) + " ";
+    strOverriddenByCommandLine += QString::fromStdString(option) + "=" + QString::fromStdString(GetArg(option, "")) + " ";
 }
 
 // Writes all missing QSettings with their default values
@@ -98,6 +100,9 @@ void OptionsModel::Init(bool resetSettings)
     if (!SoftSetArg("-par", settings.value("nThreadsScriptVerif").toString().toStdString()))
         addOverriddenOption("-par");
 
+    if (!settings.contains("strDataDir"))
+        settings.setValue("strDataDir", Intro::getDefaultDataDirectory());
+
     // Wallet
 #ifdef ENABLE_WALLET
     if (!settings.contains("bSpendZeroConfChange"))
@@ -150,8 +155,18 @@ void OptionsModel::Reset()
 {
     QSettings settings;
 
+    // Save the strDataDir setting
+    QString dataDir = Intro::getDefaultDataDirectory();
+    dataDir = settings.value("strDataDir", dataDir).toString();
+
     // Remove all entries from our QSettings object
     settings.clear();
+
+    // Set strDataDir
+    settings.setValue("strDataDir", dataDir);
+
+    // Set that this was reset
+    settings.setValue("fReset", true);
 
     // default setting for OptionsModel::StartAtStartup - disabled
     if (GUIUtil::GetStartOnSystemStartup())

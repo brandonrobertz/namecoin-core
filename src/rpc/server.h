@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2015 The Bitcoin Core developers
+// Copyright (c) 2009-2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -16,27 +16,22 @@
 #include <stdint.h>
 #include <string>
 
-#include <boost/function.hpp>
-
 #include <univalue.h>
 
+static const unsigned int DEFAULT_RPC_SERIALIZE_VERSION = 1;
+
+class CMutableTransaction;
+class COutPoint;
 class CRPCCommand;
 
 namespace RPCServer
 {
-    void OnStarted(boost::function<void ()> slot);
-    void OnStopped(boost::function<void ()> slot);
-    void OnPreCommand(boost::function<void (const CRPCCommand&)> slot);
-    void OnPostCommand(boost::function<void (const CRPCCommand&)> slot);
+    void OnStarted(std::function<void ()> slot);
+    void OnStopped(std::function<void ()> slot);
+    void OnPreCommand(std::function<void (const CRPCCommand&)> slot);
 }
 
-class CBlockIndex;
-class CMutableTransaction;
 class CNameData;
-class CNetAddr;
-class COutPoint;
-class CTxIn;
-class CWalletTx;
 
 /** Wrapper for UniValue::VType, which includes typeAny:
  * Used to denote don't care type. Only used by RPCTypeCheckObj */
@@ -47,14 +42,17 @@ struct UniValueType {
     UniValue::VType type;
 };
 
-class JSONRequest
+class JSONRPCRequest
 {
 public:
     UniValue id;
     std::string strMethod;
     UniValue params;
+    bool fHelp;
+    std::string URI;
+    std::string authUser;
 
-    JSONRequest() { id = NullUniValue; }
+    JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false) {}
     void parse(const UniValue& valRequest);
 };
 
@@ -70,7 +68,7 @@ void SetRPCWarmupStatus(const std::string& newStatus);
 void SetRPCWarmupFinished();
 
 /* returns the current warmup state.  */
-bool RPCIsInWarmup(std::string *statusOut);
+bool RPCIsInWarmup(std::string *outStatus);
 
 /**
  * Type-check arguments; throws JSONRPCError if wrong type given. Does not check that
@@ -78,6 +76,11 @@ bool RPCIsInWarmup(std::string *statusOut);
  */
 void RPCTypeCheck(const UniValue& params,
                   const std::list<UniValue::VType>& typesExpected, bool fAllowNull=false);
+
+/**
+ * Type-check one argument; throws JSONRPCError if wrong type given.
+ */
+void RPCTypeCheckArgument(const UniValue& value, UniValue::VType typeExpected);
 
 /*
   Check for expected keys/value types in an Object.
@@ -112,7 +115,7 @@ public:
      * This is needed to cope with the case in which there is no HTTP server, but
      * only GUI RPC console, and to break the dependency of pcserver on httprpc.
      */
-    virtual RPCTimerBase* NewTimer(boost::function<void(void)>& func, int64_t millis) = 0;
+    virtual RPCTimerBase* NewTimer(std::function<void(void)>& func, int64_t millis) = 0;
 };
 
 /** Set the factory function for timers */
@@ -126,9 +129,9 @@ void RPCUnsetTimerInterface(RPCTimerInterface *iface);
  * Run func nSeconds from now.
  * Overrides previous timer <name> (if any).
  */
-void RPCRunLater(const std::string& name, boost::function<void(void)> func, int64_t nSeconds);
+void RPCRunLater(const std::string& name, std::function<void(void)> func, int64_t nSeconds);
 
-typedef UniValue(*rpcfn_type)(const UniValue& params, bool fHelp);
+typedef UniValue(*rpcfn_type)(const JSONRPCRequest& jsonRequest);
 
 class CRPCCommand
 {
@@ -137,6 +140,7 @@ public:
     std::string name;
     rpcfn_type actor;
     bool okSafeMode;
+    std::vector<std::string> argNames;
 };
 
 /**
@@ -149,16 +153,15 @@ private:
 public:
     CRPCTable();
     const CRPCCommand* operator[](const std::string& name) const;
-    std::string help(const std::string& name) const;
+    std::string help(const std::string& name, const JSONRPCRequest& helpreq) const;
 
     /**
      * Execute a method.
-     * @param method   Method to execute
-     * @param params   UniValue Array of arguments (JSON objects)
+     * @param request The JSONRPCRequest to execute
      * @returns Result of the call.
      * @throws an exception (UniValue) when an error happens.
      */
-    UniValue execute(const std::string &method, const UniValue &params) const;
+    UniValue execute(const JSONRPCRequest &request) const;
 
     /**
     * Returns a list of registered commands
@@ -186,17 +189,9 @@ extern uint256 ParseHashO(const UniValue& o, std::string strKey);
 extern std::vector<unsigned char> ParseHexV(const UniValue& v, std::string strName);
 extern std::vector<unsigned char> ParseHexO(const UniValue& o, std::string strKey);
 
-extern int64_t nWalletUnlockTime;
 extern CAmount AmountFromValue(const UniValue& value);
-extern UniValue ValueFromAmount(const CAmount& amount);
-extern double GetDifficulty(const CBlockIndex* blockindex = NULL);
-extern std::string HelpRequiringPassphrase();
 extern std::string HelpExampleCli(const std::string& methodname, const std::string& args);
 extern std::string HelpExampleRpc(const std::string& methodname, const std::string& args);
-
-extern bool EnsureWalletIsAvailable(bool avoidException);
-extern void EnsureWalletIsUnlocked();
-extern void SendMoneyToScript(const CScript& scriptPubKey, const CTxIn* withInput, CAmount nValue, bool fSubtractFeeFromAmount, CWalletTx& wtxNew);
 
 extern void AddRawTxNameOperation(CMutableTransaction& tx, const UniValue& obj);
 extern UniValue getNameInfo(const valtype& name, const valtype& value, const COutPoint& outp, const CScript& addr, int height);
@@ -208,4 +203,7 @@ void InterruptRPC();
 void StopRPC();
 std::string JSONRPCExecBatch(const UniValue& vReq);
 
-#endif // BITCOINRPC_SERVER_H
+// Retrieves any serialization flags requested in command line argument
+int RPCSerializationFlags();
+
+#endif // BITCOIN_RPCSERVER_H

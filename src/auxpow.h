@@ -18,6 +18,7 @@
 class CBlock;
 class CBlockHeader;
 class CBlockIndex;
+class CValidationState;
 
 /** Header for merge-mining data in the coinbase.  */
 static const unsigned char pchMergedMiningHeader[] = { 0xfa, 0xbe, 'm', 'm' };
@@ -26,13 +27,14 @@ static const unsigned char pchMergedMiningHeader[] = { 0xfa, 0xbe, 'm', 'm' };
    here from wallet.h.  */
 
 /** A transaction with a merkle branch linking it to the block chain. */
-class CMerkleTx : public CTransaction
+class CMerkleTx
 {
 private:
   /** Constant used in hashBlock to indicate tx has been abandoned */
     static const uint256 ABANDON_HASH;
 
 public:
+    CTransactionRef tx;
     uint256 hashBlock;
     std::vector<uint256> vMerkleBranch;
 
@@ -45,13 +47,19 @@ public:
 
     CMerkleTx()
     {
+        SetTx(MakeTransactionRef());
         Init();
     }
 
-    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn)
+    CMerkleTx(CTransactionRef arg)
     {
+        SetTx(std::move(arg));
         Init();
     }
+
+    /** Helper conversion operator to allow passing CMerkleTx where CTransaction is expected.
+     *  TODO: adapt callers and remove this operator. */
+    operator const CTransaction&() const { return *tx; }
 
     void Init()
     {
@@ -59,18 +67,30 @@ public:
         nIndex = -1;
     }
 
+    void SetTx(CTransactionRef arg)
+    {
+        tx = std::move(arg);
+    }
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*(CTransaction*)this);
-        nVersion = this->nVersion;
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(tx);
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
     }
 
-    int SetMerkleBranch(const CBlock& block);
+    void SetMerkleBranch(const CBlockIndex* pindex, int posInBlock);
+
+    /**
+     * Actually compute the Merkle branch.  This is used for unit tests when
+     * constructing an auxpow.  It is not needed for actual production, since
+     * we do not care in the Namecoin client how the auxpow is constructed
+     * by a miner.
+     */
+    void InitMerkleBranch(const CBlock& block, int posInBlock);
 
     /**
      * Return depth of transaction in blockchain:
@@ -83,10 +103,13 @@ public:
     bool IsInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet) > 0; }
     int GetBlocksToMaturity() const;
     /** Pass this transaction to the mempool. Fails if absolute fee exceeds absurd fee. */
-    bool AcceptToMemoryPool(bool fLimitFree, const CAmount nAbsurdFee);
+    bool AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& state);
     bool hashUnset() const { return (hashBlock.IsNull() || hashBlock == ABANDON_HASH); }
     bool isAbandoned() const { return (hashBlock == ABANDON_HASH); }
     void setAbandoned() { hashBlock = ABANDON_HASH; }
+
+    const uint256& GetHash() const { return tx->GetHash(); }
+    bool IsCoinBase() const { return tx->IsCoinBase(); }
 };
 
 /**
@@ -113,7 +136,7 @@ public:
 public:
 
   /* Prevent accidental conversion.  */
-  inline explicit CAuxPow (const CTransaction& txIn)
+  inline explicit CAuxPow (CTransactionRef txIn)
     : CMerkleTx (txIn)
   {}
 
@@ -125,11 +148,9 @@ public:
 
   template<typename Stream, typename Operation>
     inline void
-    SerializationOp (Stream& s, Operation ser_action, int nType, int nVersion)
+    SerializationOp (Stream& s, Operation ser_action)
   {
     READWRITE (*static_cast<CMerkleTx*> (this));
-    nVersion = this->nVersion;
-
     READWRITE (vChainMerkleBranch);
     READWRITE (nChainIndex);
     READWRITE (parentBlock);

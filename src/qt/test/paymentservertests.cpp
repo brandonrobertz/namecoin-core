@@ -142,7 +142,7 @@ void PaymentServerTests::paymentServerTests()
     byteArray = QByteArray((const char*)&data[0], data.size());
     r.paymentRequest.parse(byteArray);
     // Ensure the request is initialized, because network "main" is default, even for
-    // uninizialized payment requests and that will fail our test here.
+    // uninitialized payment requests and that will fail our test here.
     QVERIFY(r.paymentRequest.IsInitialized());
     QCOMPARE(PaymentServer::verifyNetwork(r.paymentRequest.getDetails()), false);
 
@@ -196,7 +196,7 @@ void PaymentServerTests::paymentServerTests()
     QVERIFY(r.paymentRequest.IsInitialized());
     // Extract address and amount from the request
     QList<std::pair<CScript, CAmount> > sendingTos = r.paymentRequest.getPayTo();
-    Q_FOREACH (const PAIRTYPE(CScript, CAmount)& sendingTo, sendingTos) {
+    for (const std::pair<CScript, CAmount>& sendingTo : sendingTos) {
         CTxDestination dest;
         if (ExtractDestination(sendingTo.first, dest))
             QCOMPARE(PaymentServer::verifyAmount(sendingTo.second), false);

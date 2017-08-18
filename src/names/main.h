@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2015 Daniel Kraft
+// Copyright (c) 2014-2017 Daniel Kraft
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -13,6 +13,7 @@
 
 #include <list>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 
@@ -59,8 +60,7 @@ public:
   ADD_SERIALIZE_METHODS;
 
   template<typename Stream, typename Operation>
-    inline void SerializationOp (Stream& s, Operation ser_action,
-                                 int nType, int nVersion)
+    inline void SerializationOp (Stream& s, Operation ser_action)
   {
     READWRITE (name);
     READWRITE (isNew);
@@ -195,8 +195,7 @@ public:
    * @param tx The transaction for which we look for conflicts.
    * @param removed Put removed tx here.
    */
-  void removeConflicts (const CTransaction& tx,
-                        std::list<CTransaction>& removed);
+  void removeConflicts (const CTransaction& tx);
 
   /**
    * Remove conflicts in the mempool due to unexpired names.  This removes
@@ -204,16 +203,14 @@ public:
    * @param unexpired The set of unexpired names.
    * @param removed Put removed tx here.
    */
-  void removeUnexpireConflicts (const std::set<valtype>& unexpired,
-                                std::list<CTransaction>& removed);
+  void removeUnexpireConflicts (const std::set<valtype>& unexpired);
   /**
    * Remove conflicts in the mempool due to expired names.  This removes
    * conflicting name updates that are no longer possible.
    * @param expired The set of expired names.
    * @param removed Put removed tx here.
    */
-  void removeExpireConflicts (const std::set<valtype>& expired,
-                              std::list<CTransaction>& removed);
+  void removeExpireConflicts (const std::set<valtype>& expired);
 
   /**
    * Perform sanity checks.  Throws if it fails.
@@ -232,13 +229,43 @@ public:
 };
 
 /* ************************************************************************** */
+/* CNameConflictTracker.  */
+
+/**
+ * Utility class that listens to a mempool's removal notifications to track
+ * name conflicts.  This is used for DisconnectTip and unit testing.
+ */
+class CNameConflictTracker
+{
+
+private:
+
+  std::vector<CTransactionRef> txNameConflicts;
+  CTxMemPool& pool;
+
+public:
+
+  explicit CNameConflictTracker (CTxMemPool &p);
+  ~CNameConflictTracker ();
+
+  inline const std::vector<CTransactionRef>&
+  GetNameConflicts () const
+  {
+    return txNameConflicts;
+  }
+
+  void AddConflictedEntry (CTransactionRef txRemoved);
+
+};
+
+/* ************************************************************************** */
 
 /**
  * Check a transaction according to the additional Namecoin rules.  This
  * ensures that all name operations (if any) are valid and that it has
  * name operations iff it is marked as Namecoin tx by its version.
  * @param tx The transaction to check.
- * @param nHeight Height at which the tx will be.  May be MEMPOOL_HEIGHT.
+ * @param nHeight Height at which the tx will be.
  * @param view The current chain state.
  * @param state Resulting validation state.
  * @param flags Verification flags.
@@ -279,7 +306,7 @@ bool ExpireNames (unsigned nHeight, CCoinsViewCache& view, CBlockUndo& undo,
  * @param names List all unexpired names here.
  * @return True if successful.
  */
-bool UnexpireNames (unsigned nHeight, const CBlockUndo& undo,
+bool UnexpireNames (unsigned nHeight, CBlockUndo& undo,
                     CCoinsViewCache& view, std::set<valtype>& names);
 
 /**

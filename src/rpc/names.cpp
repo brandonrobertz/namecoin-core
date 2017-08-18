@@ -5,7 +5,6 @@
 #include "base58.h"
 #include "chainparams.h"
 #include "init.h"
-#include "main.h"
 #include "names/common.h"
 #include "names/main.h"
 #include "primitives/transaction.h"
@@ -13,7 +12,9 @@
 #include "script/names.h"
 #include "txmempool.h"
 #include "utilstrencodings.h"
+#include "validation.h"
 #ifdef ENABLE_WALLET
+# include "wallet/rpcwallet.h"
 # include "wallet/wallet.h"
 #endif
 
@@ -39,10 +40,10 @@ getNameInfo (const valtype& name, const valtype& value, const COutPoint& outp,
              const CScript& addr, int height)
 {
   UniValue obj(UniValue::VOBJ);
-  obj.push_back (Pair ("name", ValtypeToString (name)));
-  obj.push_back (Pair ("value", ValtypeToString (value)));
-  obj.push_back (Pair ("txid", outp.hash.GetHex ()));
-  obj.push_back (Pair ("vout", static_cast<int> (outp.n)));
+  obj.pushKV ("name", ValtypeToString (name));
+  obj.pushKV ("value", ValtypeToString (value));
+  obj.pushKV ("txid", outp.hash.GetHex ());
+  obj.pushKV ("vout", static_cast<int> (outp.n));
 
   /* Try to extract the address.  May fail if we can't parse the script
      as a "standard" script.  */
@@ -53,7 +54,7 @@ getNameInfo (const valtype& name, const valtype& value, const COutPoint& outp,
     addrStr = addrParsed.ToString ();
   else
     addrStr = "<nonstandard>";
-  obj.push_back (Pair ("address", addrStr));
+  obj.pushKV ("address", addrStr);
 
   /* Calculate expiration data.  */
   const int curHeight = chainActive.Height ();
@@ -62,9 +63,9 @@ getNameInfo (const valtype& name, const valtype& value, const COutPoint& outp,
   const int expireHeight = height + expireDepth;
   const int expiresIn = expireHeight - curHeight;
   const bool expired = (expiresIn <= 0);
-  obj.push_back (Pair ("height", height));
-  obj.push_back (Pair ("expires_in", expiresIn));
-  obj.push_back (Pair ("expired", expired));
+  obj.pushKV ("height", height);
+  obj.pushKV ("expires_in", expiresIn);
+  obj.pushKV ("expired", expired);
 
   return obj;
 }
@@ -163,9 +164,9 @@ AddRawTxNameOperation (CMutableTransaction& tx, const UniValue& obj)
 /* ************************************************************************** */
 
 UniValue
-name_show (const UniValue& params, bool fHelp)
+name_show (const JSONRPCRequest& request)
 {
-  if (fHelp || params.size () != 1)
+  if (request.fHelp || request.params.size () != 1)
     throw std::runtime_error (
         "name_show \"name\"\n"
         "\nLook up the current data for the given name."
@@ -183,7 +184,7 @@ name_show (const UniValue& params, bool fHelp)
     throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                        "Namecoin is downloading blocks...");
 
-  const std::string nameStr = params[0].get_str ();
+  const std::string nameStr = request.params[0].get_str ();
   const valtype name = ValtypeFromString (nameStr);
 
   CNameData data;
@@ -203,9 +204,9 @@ name_show (const UniValue& params, bool fHelp)
 /* ************************************************************************** */
 
 UniValue
-name_history (const UniValue& params, bool fHelp)
+name_history (const JSONRPCRequest& request)
 {
-  if (fHelp || params.size () != 1)
+  if (request.fHelp || request.params.size () != 1)
     throw std::runtime_error (
         "name_history \"name\"\n"
         "\nLook up the current and all past data for the given name."
@@ -229,7 +230,7 @@ name_history (const UniValue& params, bool fHelp)
     throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                        "Namecoin is downloading blocks...");
 
-  const std::string nameStr = params[0].get_str ();
+  const std::string nameStr = request.params[0].get_str ();
   const valtype name = ValtypeFromString (nameStr);
 
   CNameData data;
@@ -250,7 +251,7 @@ name_history (const UniValue& params, bool fHelp)
   }
 
   UniValue res(UniValue::VARR);
-  BOOST_FOREACH (const CNameData& entry, history.getData ())
+  for (const auto& entry : history.getData ())
     res.push_back (getNameInfo (name, entry));
   res.push_back (getNameInfo (name, data));
 
@@ -260,9 +261,9 @@ name_history (const UniValue& params, bool fHelp)
 /* ************************************************************************** */
 
 UniValue
-name_scan (const UniValue& params, bool fHelp)
+name_scan (const JSONRPCRequest& request)
 {
-  if (fHelp || params.size () > 2)
+  if (request.fHelp || request.params.size () > 2)
     throw std::runtime_error (
         "name_scan (\"start\" (\"count\"))\n"
         "\nList names in the database.\n"
@@ -286,12 +287,12 @@ name_scan (const UniValue& params, bool fHelp)
                        "Namecoin is downloading blocks...");
 
   valtype start;
-  if (params.size () >= 1)
-    start = ValtypeFromString (params[0].get_str ());
+  if (request.params.size () >= 1)
+    start = ValtypeFromString (request.params[0].get_str ());
 
   int count = 500;
-  if (params.size () >= 2)
-    count = params[1].get_int ();
+  if (request.params.size () >= 2)
+    count = request.params[1].get_int ();
 
   UniValue res(UniValue::VARR);
   if (count <= 0)
@@ -311,9 +312,9 @@ name_scan (const UniValue& params, bool fHelp)
 /* ************************************************************************** */
 
 UniValue
-name_filter (const UniValue& params, bool fHelp)
+name_filter (const JSONRPCRequest& request)
 {
-  if (fHelp || params.size () > 5)
+  if (request.fHelp || request.params.size () > 5)
     throw std::runtime_error (
         "name_filter (\"regexp\" (\"maxage\" (\"from\" (\"nb\" (\"stat\")))))\n"
         "\nScan and list names matching a regular expression.\n"
@@ -348,30 +349,30 @@ name_filter (const UniValue& params, bool fHelp)
   int maxage(36000), from(0), nb(0);
   bool stats(false);
 
-  if (params.size () >= 1)
+  if (request.params.size () >= 1)
     {
       haveRegexp = true;
-      regexp = boost::xpressive::sregex::compile (params[0].get_str ());
+      regexp = boost::xpressive::sregex::compile (request.params[0].get_str ());
     }
 
-  if (params.size () >= 2)
-    maxage = params[1].get_int ();
+  if (request.params.size () >= 2)
+    maxage = request.params[1].get_int ();
   if (maxage < 0)
     throw JSONRPCError (RPC_INVALID_PARAMETER,
                         "'maxage' should be non-negative");
-  if (params.size () >= 3)
-    from = params[2].get_int ();
+  if (request.params.size () >= 3)
+    from = request.params[2].get_int ();
   if (from < 0)
     throw JSONRPCError (RPC_INVALID_PARAMETER, "'from' should be non-negative");
 
-  if (params.size () >= 4)
-    nb = params[3].get_int ();
+  if (request.params.size () >= 4)
+    nb = request.params[3].get_int ();
   if (nb < 0)
     throw JSONRPCError (RPC_INVALID_PARAMETER, "'nb' should be non-negative");
 
-  if (params.size () >= 5)
+  if (request.params.size () >= 5)
     {
-      if (params[4].get_str () != "stat")
+      if (request.params[4].get_str () != "stat")
         throw JSONRPCError (RPC_INVALID_PARAMETER,
                             "fifth argument must be the literal string 'stat'");
       stats = true;
@@ -429,8 +430,8 @@ name_filter (const UniValue& params, bool fHelp)
   if (stats)
     {
       UniValue res(UniValue::VOBJ);
-      res.push_back (Pair ("blocks", chainActive.Height ()));
-      res.push_back (Pair ("count", static_cast<int> (count)));
+      res.pushKV ("blocks", chainActive.Height ());
+      res.pushKV ("count", static_cast<int> (count));
 
       return res;
     }
@@ -441,9 +442,9 @@ name_filter (const UniValue& params, bool fHelp)
 /* ************************************************************************** */
 
 UniValue
-name_pending (const UniValue& params, bool fHelp)
+name_pending (const JSONRPCRequest& request)
 {
-  if (fHelp || params.size () > 1)
+  if (request.fHelp || request.params.size () > 1)
     throw std::runtime_error (
         "name_pending (\"name\")\n"
         "\nList unconfirmed name operations in the mempool.\n"
@@ -467,17 +468,18 @@ name_pending (const UniValue& params, bool fHelp)
       );
 
 #ifdef ENABLE_WALLET
-    LOCK2 (pwalletMain ? &pwalletMain->cs_wallet : NULL, mempool.cs);
+    CWallet* pwallet = GetWalletForJSONRPCRequest (request);
+    LOCK2 (pwallet ? &pwallet->cs_wallet : nullptr, mempool.cs);
 #else
     LOCK (mempool.cs);
 #endif
 
   std::vector<uint256> txHashes;
-  if (params.size () == 0)
+  if (request.params.size () == 0)
     mempool.queryHashes (txHashes);
   else
     {
-      const std::string name = params[0].get_str ();
+      const std::string name = request.params[0].get_str ();
       const valtype vchName = ValtypeFromString (name);
       const uint256 txid = mempool.getTxForName (vchName);
       if (!txid.IsNull ())
@@ -518,17 +520,17 @@ name_pending (const UniValue& params, bool fHelp)
             }
 
           UniValue obj(UniValue::VOBJ);
-          obj.push_back (Pair ("op", strOp));
-          obj.push_back (Pair ("name", name));
-          obj.push_back (Pair ("value", value));
-          obj.push_back (Pair ("txid", tx->GetHash ().GetHex ()));
+          obj.pushKV ("op", strOp);
+          obj.pushKV ("name", name);
+          obj.pushKV ("value", value);
+          obj.pushKV ("txid", tx->GetHash ().GetHex ());
 
 #ifdef ENABLE_WALLET
           isminetype mine = ISMINE_NO;
-          if (pwalletMain)
-            mine = IsMine (*pwalletMain, op.getAddress ());
+          if (pwallet)
+            mine = IsMine (*pwallet, op.getAddress ());
           const bool isMine = (mine & ISMINE_SPENDABLE);
-          obj.push_back (Pair ("ismine", isMine));
+          obj.pushKV ("ismine", isMine);
 #endif
 
           arr.push_back (obj);
@@ -541,9 +543,9 @@ name_pending (const UniValue& params, bool fHelp)
 /* ************************************************************************** */
 
 UniValue
-name_checkdb (const UniValue& params, bool fHelp)
+name_checkdb (const JSONRPCRequest& request)
 {
-  if (fHelp || params.size () != 0)
+  if (request.fHelp || request.params.size () != 0)
     throw std::runtime_error (
         "name_checkdb\n"
         "\nValidate the name DB's consistency.\n"
@@ -566,16 +568,16 @@ name_checkdb (const UniValue& params, bool fHelp)
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
-    { "namecoin",           "name_show",              &name_show,              false },
-    { "namecoin",           "name_history",           &name_history,           false },
-    { "namecoin",           "name_scan",              &name_scan,              false },
-    { "namecoin",           "name_filter",            &name_filter,            false },
-    { "namecoin",           "name_pending",           &name_pending,           true  },
-    { "namecoin",           "name_checkdb",           &name_checkdb,           false },
+    { "namecoin",           "name_show",              &name_show,              false,  {"name"} },
+    { "namecoin",           "name_history",           &name_history,           false,  {"name"} },
+    { "namecoin",           "name_scan",              &name_scan,              false,  {"start","count"} },
+    { "namecoin",           "name_filter",            &name_filter,            false,  {"regexp","maxage","from","nb","stat"} },
+    { "namecoin",           "name_pending",           &name_pending,           true,   {"name"} },
+    { "namecoin",           "name_checkdb",           &name_checkdb,           false,  {} },
 };
 
-void RegisterNameRPCCommands(CRPCTable &tableRPC)
+void RegisterNameRPCCommands(CRPCTable &t)
 {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
-        tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
+        t.appendCommand(commands[vcidx].name, &commands[vcidx]);
 }

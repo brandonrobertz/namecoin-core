@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2015 The Bitcoin Core developers
+// Copyright (c) 2011-2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,9 +9,10 @@
 #include "qvalidatedlineedit.h"
 #include "walletmodel.h"
 
+#include "fs.h"
 #include "primitives/transaction.h"
 #include "init.h"
-#include "main.h" // For minRelayTxFee
+#include "policy/policy.h"
 #include "protocol.h"
 #include "script/script.h"
 #include "script/standard.h"
@@ -35,11 +36,6 @@
 #include "shlwapi.h"
 #endif
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
-#if BOOST_FILESYSTEM_VERSION >= 3
-#include <boost/filesystem/detail/utf8_codecvt_facet.hpp>
-#endif
 #include <boost/scoped_array.hpp>
 
 #include <QAbstractItemView>
@@ -55,6 +51,7 @@
 #include <QSettings>
 #include <QTextDocument> // for Qt::mightBeRichText
 #include <QThread>
+#include <QMouseEvent>
 
 #include <cstring>
 
@@ -68,9 +65,7 @@
 #include <QFontDatabase>
 #endif
 
-#if BOOST_FILESYSTEM_VERSION >= 3
-static boost::filesystem::detail::utf8_codecvt_facet utf8;
-#endif
+static fs::detail::utf8_codecvt_facet utf8;
 
 #if defined(Q_OS_MAC)
 extern double NSAppKitVersionNumber;
@@ -120,7 +115,7 @@ static std::string DummyAddress(const CChainParams &params)
     std::vector<unsigned char> sourcedata = params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
     sourcedata.insert(sourcedata.end(), dummydata, dummydata + sizeof(dummydata));
     for(int i=0; i<256; ++i) { // Try every trailing byte
-        std::string s = EncodeBase58(begin_ptr(sourcedata), end_ptr(sourcedata));
+        std::string s = EncodeBase58(sourcedata.data(), sourcedata.data() + sourcedata.size());
         if (!CBitcoinAddress(s).IsValid())
             return s;
         sourcedata[sourcedata.size()-1] += 1;
@@ -260,7 +255,7 @@ bool isDust(const QString& address, const CAmount& amount)
     CTxDestination dest = CBitcoinAddress(address.toStdString()).Get();
     CScript script = GetScriptForDestination(dest);
     CTxOut txOut(amount, script);
-    return txOut.IsDust(::minRelayTxFee);
+    return IsDust(txOut, ::dustRelayFee);
 }
 
 QString HtmlEscape(const QString& str, bool fMultiLine)
@@ -295,17 +290,11 @@ void copyEntryData(QAbstractItemView *view, int column, int role)
     }
 }
 
-QString getEntryData(QAbstractItemView *view, int column, int role)
+QList<QModelIndex> getEntryData(QAbstractItemView *view, int column)
 {
     if(!view || !view->selectionModel())
-        return QString();
-    QModelIndexList selection = view->selectionModel()->selectedRows(column);
-
-    if(!selection.isEmpty()) {
-        // Return first item
-        return (selection.at(0).data(role).toString());
-    }
-    return QString();
+        return QList<QModelIndex>();
+    return view->selectionModel()->selectedRows(column);
 }
 
 QString getSaveFileName(QWidget *parent, const QString &caption, const QString &dir,
@@ -423,11 +412,27 @@ bool isObscured(QWidget *w)
 
 void openDebugLogfile()
 {
-    boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
+    fs::path pathDebug = GetDataDir() / "debug.log";
 
     /* Open debug.log with the associated application */
-    if (boost::filesystem::exists(pathDebug))
+    if (fs::exists(pathDebug))
         QDesktopServices::openUrl(QUrl::fromLocalFile(boostPathToQString(pathDebug)));
+}
+
+bool openBitcoinConf()
+{
+    boost::filesystem::path pathConfig = GetConfigFile(BITCOIN_CONF_FILENAME);
+
+    /* Create the file */
+    boost::filesystem::ofstream configFile(pathConfig, std::ios_base::app);
+    
+    if (!configFile.good())
+        return false;
+    
+    configFile.close();
+    
+    /* Open bitcoin.conf with the associated application */
+    return QDesktopServices::openUrl(QUrl::fromLocalFile(boostPathToQString(pathConfig)));
 }
 
 void SubstituteFonts(const QString& language)
@@ -456,7 +461,7 @@ void SubstituteFonts(const QString& language)
             /* 10.10 or later system */
             if (language == "zh_CN" || language == "zh_TW" || language == "zh_HK") // traditional or simplified Chinese
               QFont::insertSubstitution(".Helvetica Neue DeskInterface", "Heiti SC");
-            else if (language == "ja") // Japanesee
+            else if (language == "ja") // Japanese
               QFont::insertSubstitution(".Helvetica Neue DeskInterface", "Songti SC");
             else
               QFont::insertSubstitution(".Helvetica Neue DeskInterface", "Lucida Grande");
@@ -466,9 +471,9 @@ void SubstituteFonts(const QString& language)
 #endif
 }
 
-ToolTipToRichTextFilter::ToolTipToRichTextFilter(int size_threshold, QObject *parent) :
+ToolTipToRichTextFilter::ToolTipToRichTextFilter(int _size_threshold, QObject *parent) :
     QObject(parent),
-    size_threshold(size_threshold)
+    size_threshold(_size_threshold)
 {
 
 }
@@ -545,7 +550,7 @@ int TableViewLastColumnResizingFixer::getAvailableWidthForColumn(int column)
     return nResult;
 }
 
-// Make sure we don't make the columns wider than the tables viewport width.
+// Make sure we don't make the columns wider than the table's viewport width.
 void TableViewLastColumnResizingFixer::adjustTableColumnsWidth()
 {
     disconnectViewHeadersSignals();
@@ -579,7 +584,7 @@ void TableViewLastColumnResizingFixer::on_sectionResized(int logicalIndex, int o
     }
 }
 
-// When the tabless geometry is ready, we manually perform the stretch of the "Message" column,
+// When the table's geometry is ready, we manually perform the stretch of the "Message" column,
 // as the "Stretch" resize mode does not allow for interactive resizing.
 void TableViewLastColumnResizingFixer::on_geometriesChanged()
 {
@@ -595,7 +600,8 @@ void TableViewLastColumnResizingFixer::on_geometriesChanged()
  * Initializes all internal variables and prepares the
  * the resize modes of the last 2 columns of the table and
  */
-TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* table, int lastColMinimumWidth, int allColsMinimumWidth) :
+TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* table, int lastColMinimumWidth, int allColsMinimumWidth, QObject *parent) :
+    QObject(parent),
     tableView(table),
     lastColumnMinimumWidth(lastColMinimumWidth),
     allColumnsMinimumWidth(allColsMinimumWidth)
@@ -609,7 +615,7 @@ TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* t
 }
 
 #ifdef WIN32
-boost::filesystem::path static StartupShortcutPath()
+fs::path static StartupShortcutPath()
 {
     std::string chain = ChainNameFromCommandLine();
     if (chain == CBaseChainParams::MAIN)
@@ -622,13 +628,13 @@ boost::filesystem::path static StartupShortcutPath()
 bool GetStartOnSystemStartup()
 {
     // check for Bitcoin*.lnk
-    return boost::filesystem::exists(StartupShortcutPath());
+    return fs::exists(StartupShortcutPath());
 }
 
 bool SetStartOnSystemStartup(bool fAutoStart)
 {
     // If the shortcut exists already, remove it for updating
-    boost::filesystem::remove(StartupShortcutPath());
+    fs::remove(StartupShortcutPath());
 
     if (fAutoStart)
     {
@@ -698,10 +704,8 @@ bool SetStartOnSystemStartup(bool fAutoStart)
 // Follow the Desktop Application Autostart Spec:
 // http://standards.freedesktop.org/autostart-spec/autostart-spec-latest.html
 
-boost::filesystem::path static GetAutostartDir()
+fs::path static GetAutostartDir()
 {
-    namespace fs = boost::filesystem;
-
     char* pszConfigHome = getenv("XDG_CONFIG_HOME");
     if (pszConfigHome) return fs::path(pszConfigHome) / "autostart";
     char* pszHome = getenv("HOME");
@@ -709,7 +713,7 @@ boost::filesystem::path static GetAutostartDir()
     return fs::path();
 }
 
-boost::filesystem::path static GetAutostartFilePath()
+fs::path static GetAutostartFilePath()
 {
     std::string chain = ChainNameFromCommandLine();
     if (chain == CBaseChainParams::MAIN)
@@ -719,7 +723,7 @@ boost::filesystem::path static GetAutostartFilePath()
 
 bool GetStartOnSystemStartup()
 {
-    boost::filesystem::ifstream optionFile(GetAutostartFilePath());
+    fs::ifstream optionFile(GetAutostartFilePath());
     if (!optionFile.good())
         return false;
     // Scan through file for "Hidden=true":
@@ -739,7 +743,7 @@ bool GetStartOnSystemStartup()
 bool SetStartOnSystemStartup(bool fAutoStart)
 {
     if (!fAutoStart)
-        boost::filesystem::remove(GetAutostartFilePath());
+        fs::remove(GetAutostartFilePath());
     else
     {
         char pszExePath[MAX_PATH+1];
@@ -747,9 +751,9 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         if (readlink("/proc/self/exe", pszExePath, sizeof(pszExePath)-1) == -1)
             return false;
 
-        boost::filesystem::create_directories(GetAutostartDir());
+        fs::create_directories(GetAutostartDir());
 
-        boost::filesystem::ofstream optionFile(GetAutostartFilePath(), std::ios_base::out|std::ios_base::trunc);
+        fs::ofstream optionFile(GetAutostartFilePath(), std::ios_base::out|std::ios_base::trunc);
         if (!optionFile.good())
             return false;
         std::string chain = ChainNameFromCommandLine();
@@ -770,6 +774,8 @@ bool SetStartOnSystemStartup(bool fAutoStart)
 
 
 #elif defined(Q_OS_MAC)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 // based on: https://github.com/Mozketo/LaunchAtLoginController/blob/master/LaunchAtLoginController.m
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -832,6 +838,7 @@ bool SetStartOnSystemStartup(bool fAutoStart)
     }
     return true;
 }
+#pragma GCC diagnostic pop
 #else
 
 bool GetStartOnSystemStartup() { return false; }
@@ -852,14 +859,17 @@ void restoreWindowGeometry(const QString& strSetting, const QSize& defaultSize, 
     QPoint pos = settings.value(strSetting + "Pos").toPoint();
     QSize size = settings.value(strSetting + "Size", defaultSize).toSize();
 
-    if (!pos.x() && !pos.y()) {
-        QRect screen = QApplication::desktop()->screenGeometry();
-        pos.setX((screen.width() - size.width()) / 2);
-        pos.setY((screen.height() - size.height()) / 2);
-    }
-
     parent->resize(size);
     parent->move(pos);
+
+    if ((!pos.x() && !pos.y()) || (QApplication::desktop()->screenNumber(parent) == -1))
+    {
+        QRect screen = QApplication::desktop()->screenGeometry();
+        QPoint defaultPos((screen.width() - defaultSize.width()) / 2,
+                          (screen.height() - defaultSize.height()) / 2);
+        parent->resize(defaultSize);
+        parent->move(defaultPos);
+    }
 }
 
 void setClipboard(const QString& str)
@@ -868,28 +878,15 @@ void setClipboard(const QString& str)
     QApplication::clipboard()->setText(str, QClipboard::Selection);
 }
 
-#if BOOST_FILESYSTEM_VERSION >= 3
-boost::filesystem::path qstringToBoostPath(const QString &path)
+fs::path qstringToBoostPath(const QString &path)
 {
-    return boost::filesystem::path(path.toStdString(), utf8);
+    return fs::path(path.toStdString(), utf8);
 }
 
-QString boostPathToQString(const boost::filesystem::path &path)
+QString boostPathToQString(const fs::path &path)
 {
     return QString::fromStdString(path.string(utf8));
 }
-#else
-#warning Conversion between boost path and QString can use invalid character encoding with boost_filesystem v2 and older
-boost::filesystem::path qstringToBoostPath(const QString &path)
-{
-    return boost::filesystem::path(path.toStdString());
-}
-
-QString boostPathToQString(const boost::filesystem::path &path)
-{
-    return QString::fromStdString(path.string());
-}
-#endif
 
 QString formatDurationStr(int secs)
 {
@@ -934,6 +931,9 @@ QString formatServicesStr(quint64 mask)
             case NODE_WITNESS:
                 strList.append("WITNESS");
                 break;
+            case NODE_XTHIN:
+                strList.append("XTHIN");
+                break;
             default:
                 strList.append(QString("%1[%2]").arg("UNKNOWN").arg(check));
             }
@@ -948,12 +948,59 @@ QString formatServicesStr(quint64 mask)
 
 QString formatPingTime(double dPingTime)
 {
-    return dPingTime == 0 ? QObject::tr("N/A") : QString(QObject::tr("%1 ms")).arg(QString::number((int)(dPingTime * 1000), 10));
+    return (dPingTime == std::numeric_limits<int64_t>::max()/1e6 || dPingTime == 0) ? QObject::tr("N/A") : QString(QObject::tr("%1 ms")).arg(QString::number((int)(dPingTime * 1000), 10));
 }
 
 QString formatTimeOffset(int64_t nTimeOffset)
 {
   return QString(QObject::tr("%1 s")).arg(QString::number((int)nTimeOffset, 10));
+}
+
+QString formatNiceTimeOffset(qint64 secs)
+{
+    // Represent time from last generated block in human readable text
+    QString timeBehindText;
+    const int HOUR_IN_SECONDS = 60*60;
+    const int DAY_IN_SECONDS = 24*60*60;
+    const int WEEK_IN_SECONDS = 7*24*60*60;
+    const int YEAR_IN_SECONDS = 31556952; // Average length of year in Gregorian calendar
+    if(secs < 60)
+    {
+        timeBehindText = QObject::tr("%n second(s)","",secs);
+    }
+    else if(secs < 2*HOUR_IN_SECONDS)
+    {
+        timeBehindText = QObject::tr("%n minute(s)","",secs/60);
+    }
+    else if(secs < 2*DAY_IN_SECONDS)
+    {
+        timeBehindText = QObject::tr("%n hour(s)","",secs/HOUR_IN_SECONDS);
+    }
+    else if(secs < 2*WEEK_IN_SECONDS)
+    {
+        timeBehindText = QObject::tr("%n day(s)","",secs/DAY_IN_SECONDS);
+    }
+    else if(secs < YEAR_IN_SECONDS)
+    {
+        timeBehindText = QObject::tr("%n week(s)","",secs/WEEK_IN_SECONDS);
+    }
+    else
+    {
+        qint64 years = secs / YEAR_IN_SECONDS;
+        qint64 remainder = secs % YEAR_IN_SECONDS;
+        timeBehindText = QObject::tr("%1 and %2").arg(QObject::tr("%n year(s)", "", years)).arg(QObject::tr("%n week(s)","", remainder/WEEK_IN_SECONDS));
+    }
+    return timeBehindText;
+}
+
+void ClickableLabel::mouseReleaseEvent(QMouseEvent *event)
+{
+    Q_EMIT clicked(event->pos());
+}
+    
+void ClickableProgressBar::mouseReleaseEvent(QMouseEvent *event)
+{
+    Q_EMIT clicked(event->pos());
 }
 
 } // namespace GUIUtil

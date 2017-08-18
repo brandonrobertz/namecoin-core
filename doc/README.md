@@ -1,5 +1,5 @@
-Namecoin Core 0.13.99
-=====================
+Namecoin Core
+==============
 
 Setup
 ---------------------
@@ -26,8 +26,7 @@ Drag Namecoin-Qt to your applications folder, and then run Namecoin-Qt.
 
 ### Need Help?
 
-* See the documentation at the [Namecoin Wiki](https://wiki.namecoin.org/index.php?title=Welcome)
-for help and more information.
+* See the documentation at the [Namecoin Site](https://namecoin.org) for help and more information.
 * Ask for help on [#namecoin](http://webchat.freenode.net?channels=namecoin) on Freenode. If you don't have an IRC client use [webchat here](http://webchat.freenode.net?channels=namecoin).
 * Ask for help on the [Namecoin forums](https://forum.namecoin.info/index.php), in the [Technical Support board](https://forum.namecoin.info/viewforum.php?f=7).
 
@@ -46,13 +45,12 @@ Development
 The Namecoin repo's [root README](https://github.com/namecoin/namecore/blob/master/README.md) contains relevant information on the development process and automated testing.
 
 - [Developer Notes](developer-notes.md)
-- [Multiwallet Qt Development](multiwallet-qt.md)
 - [Release Notes](release-notes.md)
 - [Release Process](release-process.md)
 - [Source Code Documentation (External Link)](https://dev.visucore.com/bitcoin/doxygen/)
 - [Translation Process](translation_process.md)
 - [Translation Strings Policy](translation_strings_policy.md)
-- [Unit Tests](unit-tests.md)
+- [Travis CI](travis-ci.md)
 - [Unauthenticated REST Interface](REST-interface.md)
 - [Shared Libraries](shared-libraries.md)
 - [BIPS](bips.md)
@@ -66,11 +64,14 @@ The Namecoin repo's [root README](https://github.com/namecoin/namecore/blob/mast
 ### Miscellaneous
 - [Assets Attribution](assets-attribution.md)
 - [Files](files.md)
+- [Fuzz-testing](fuzzing.md)
+- [Reduce Traffic](reduce-traffic.md)
 - [Tor Support](tor.md)
 - [Init Scripts (systemd/upstart/openrc)](init.md)
+- [ZMQ](zmq.md)
 
 License
 ---------------------
-Distributed under the [MIT software license](http://www.opensource.org/licenses/mit-license.php).
+Distributed under the [MIT software license](/COPYING).
 This product includes software developed by the OpenSSL Project for use in the [OpenSSL Toolkit](https://www.openssl.org/). This product includes
 cryptographic software written by Eric Young ([eay@cryptsoft.com](mailto:eay@cryptsoft.com)), and UPnP software written by Thomas Bernard.

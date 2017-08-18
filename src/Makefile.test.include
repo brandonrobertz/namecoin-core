@@ -1,5 +1,10 @@
+# Copyright (c) 2013-2016 The Bitcoin Core developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 TESTS += test/test_namecoin
 bin_PROGRAMS += test/test_namecoin
+noinst_PROGRAMS += test/test_namecoin_fuzzy
 TEST_SRCDIR = test
 TEST_BINARY=test/test_namecoin$(EXEEXT)
 
@@ -34,6 +39,7 @@ RAW_TEST_FILES =
 
 GENERATED_TEST_FILES = $(JSON_TEST_FILES:.json=.json.h) $(RAW_TEST_FILES:.raw=.raw.h)
 
+# test_bitcoin binary #
 BITCOIN_TESTS =\
   test/arith_uint256_tests.cpp \
   test/scriptnum10.h \
@@ -47,10 +53,12 @@ BITCOIN_TESTS =\
   test/bip32_tests.cpp \
   test/blockencodings_tests.cpp \
   test/bloom_tests.cpp \
-  test/Checkpoints_tests.cpp \
+  test/bswap_tests.cpp \
+  test/checkqueue_tests.cpp \
   test/coins_tests.cpp \
   test/compress_tests.cpp \
   test/crypto_tests.cpp \
+  test/cuckoocache_tests.cpp \
   test/DoS_tests.cpp \
   test/getarg_tests.cpp \
   test/hash_tests.cpp \
@@ -69,6 +77,8 @@ BITCOIN_TESTS =\
   test/policyestimator_tests.cpp \
   test/pow_tests.cpp \
   test/prevector_tests.cpp \
+  test/raii_event_tests.cpp \
+  test/random_tests.cpp \
   test/reverselock_tests.cpp \
   test/rpc_tests.cpp \
   test/sanity_tests.cpp \
@@ -83,9 +93,11 @@ BITCOIN_TESTS =\
   test/streams_tests.cpp \
   test/test_bitcoin.cpp \
   test/test_bitcoin.h \
+  test/test_bitcoin_main.cpp \
   test/testutil.cpp \
   test/testutil.h \
   test/timedata_tests.cpp \
+  test/torcontrol_tests.cpp \
   test/transaction_tests.cpp \
   test/txvalidationcache_tests.cpp \
   test/versionbits_tests.cpp \
@@ -105,13 +117,14 @@ BITCOIN_TESTS += \
 endif
 
 test_test_namecoin_SOURCES = $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
-test_test_namecoin_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -I$(builddir)/test/ $(TESTDEFS)
-test_test_namecoin_LDADD = $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CONSENSUS) $(LIBBITCOIN_CRYPTO) $(LIBUNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
-  $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1)
-test_test_namecoin_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+test_test_namecoin_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -I$(builddir)/test/ $(TESTDEFS) $(EVENT_CFLAGS)
+test_test_namecoin_LDADD =
 if ENABLE_WALLET
 test_test_namecoin_LDADD += $(LIBBITCOIN_WALLET)
 endif
+test_test_namecoin_LDADD += $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CONSENSUS) $(LIBBITCOIN_CRYPTO) $(LIBUNIVALUE) \
+  $(LIBLEVELDB) $(LIBLEVELDB_SSE42) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
+test_test_namecoin_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 test_test_namecoin_LDADD += $(LIBBITCOIN_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
 test_test_namecoin_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
@@ -119,6 +132,25 @@ test_test_namecoin_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -
 if ENABLE_ZMQ
 test_test_namecoin_LDADD += $(ZMQ_LIBS)
 endif
+#
+
+# test_namecoin_fuzzy binary #
+test_test_namecoin_fuzzy_SOURCES = test/test_bitcoin_fuzzy.cpp
+test_test_namecoin_fuzzy_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+test_test_namecoin_fuzzy_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+test_test_namecoin_fuzzy_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+
+test_test_namecoin_fuzzy_LDADD = \
+  $(LIBUNIVALUE) \
+  $(LIBBITCOIN_SERVER) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_UTIL) \
+  $(LIBBITCOIN_CONSENSUS) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBSECP256K1)
+
+test_test_namecoin_fuzzy_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+#
 
 nodist_test_test_namecoin_SOURCES = $(GENERATED_TEST_FILES)
 
@@ -140,8 +172,8 @@ namecoin_test_clean : FORCE
 	rm -f $(CLEAN_BITCOIN_TEST) $(test_test_namecoin_OBJECTS) $(TEST_BINARY)
 
 check-local:
-	@echo "Running test/bitcoin-util-test.py..."
-	$(AM_V_at)srcdir=$(srcdir) PYTHONPATH=$(builddir)/test $(PYTHON) $(srcdir)/test/bitcoin-util-test.py
+	@echo "Running test/util/bitcoin-util-test.py..."
+	$(top_builddir)/test/util/bitcoin-util-test.py
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check
 if EMBEDDED_UNIVALUE
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C univalue check
@@ -149,16 +181,10 @@ endif
 
 %.json.h: %.json
 	@$(MKDIR_P) $(@D)
-	@echo "namespace json_tests{" > $@
-	@echo "static unsigned const char $(*F)[] = {" >> $@
-	@$(HEXDUMP) -v -e '8/1 "0x%02x, "' -e '"\n"' $< | $(SED) -e 's/0x  ,//g' >> $@
-	@echo "};};" >> $@
-	@echo "Generated $@"
-
-%.raw.h: %.raw
-	@$(MKDIR_P) $(@D)
-	@echo "namespace alert_tests{" > $@
-	@echo "static unsigned const char $(*F)[] = {" >> $@
-	@$(HEXDUMP) -v -e '8/1 "0x%02x, "' -e '"\n"' $< | $(SED) -e 's/0x  ,//g' >> $@
-	@echo "};};" >> $@
+	@{ \
+	 echo "namespace json_tests{" && \
+	 echo "static unsigned const char $(*F)[] = {" && \
+	 $(HEXDUMP) -v -e '8/1 "0x%02x, "' -e '"\n"' $< | $(SED) -e 's/0x  ,//g' && \
+	 echo "};};"; \
+	} > "$@.new" && mv -f "$@.new" "$@"
 	@echo "Generated $@"

@@ -8,8 +8,11 @@
 #ifndef BITCOIN_TEST_TESTUTIL_H
 #define BITCOIN_TEST_TESTUTIL_H
 
-#include <boost/filesystem/path.hpp>
+#include "coins.h"
+#include "fs.h"
 
-boost::filesystem::path GetTempPath();
+fs::path GetTempPath();
+
+bool operator==(const Coin &a, const Coin &b);
 
 #endif // BITCOIN_TEST_TESTUTIL_H

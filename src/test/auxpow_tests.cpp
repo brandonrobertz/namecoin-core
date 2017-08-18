@@ -6,7 +6,7 @@
 #include "chainparams.h"
 #include "coins.h"
 #include "consensus/merkle.h"
-#include "main.h"
+#include "validation.h"
 #include "primitives/block.h"
 #include "script/script.h"
 #include "utilstrencodings.h"
@@ -84,7 +84,7 @@ public:
    * @param tx The base tx to use.
    * @return The constructed CAuxPow object.
    */
-  CAuxPow get (const CTransaction& tx) const;
+  CAuxPow get (const CTransactionRef tx) const;
 
   /**
    * Build the finished CAuxPow object from the parent block's coinbase.
@@ -127,7 +127,7 @@ CAuxpowBuilder::setCoinbase (const CScript& scr)
   mtx.vin[0].scriptSig = scr;
 
   parentBlock.vtx.clear ();
-  parentBlock.vtx.push_back (mtx);
+  parentBlock.vtx.push_back (MakeTransactionRef (std::move (mtx)));
   parentBlock.hashMerkleRoot = BlockMerkleRoot (parentBlock);
 }
 
@@ -151,11 +151,11 @@ CAuxpowBuilder::buildAuxpowChain (const uint256& hashAux, unsigned h, int index)
 }
 
 CAuxPow
-CAuxpowBuilder::get (const CTransaction& tx) const
+CAuxpowBuilder::get (const CTransactionRef tx) const
 {
   LOCK(cs_main);
   CAuxPow res(tx);
-  res.SetMerkleBranch (parentBlock);
+  res.InitMerkleBranch (parentBlock, 0);
 
   res.vChainMerkleBranch = auxpowChainMerkleBranch;
   res.nChainIndex = auxpowChainIndex;
@@ -217,7 +217,7 @@ BOOST_AUTO_TEST_CASE (check_auxpow)
 
   /* Non-coinbase parent tx should fail.  Note that we can't just copy
      the coinbase literally, as we have to get a tx with different hash.  */
-  const CTransaction oldCoinbase = builder.parentBlock.vtx[0];
+  const CTransactionRef oldCoinbase = builder.parentBlock.vtx[0];
   builder.setCoinbase (scr << 5);
   builder.parentBlock.vtx.push_back (oldCoinbase);
   builder.parentBlock.hashMerkleRoot = BlockMerkleRoot (builder.parentBlock);

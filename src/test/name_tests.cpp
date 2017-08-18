@@ -1,11 +1,10 @@
-// Copyright (c) 2014-2015 Daniel Kraft
+// Copyright (c) 2014-2017 Daniel Kraft
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "base58.h"
 #include "coins.h"
 #include "consensus/validation.h"
-#include "main.h"
 #include "names/main.h"
 #include "policy/policy.h"
 #include "primitives/transaction.h"
@@ -13,8 +12,10 @@
 #include "txdb.h"
 #include "txmempool.h"
 #include "undo.h"
+#include "validation.h"
 
 #include "test/test_bitcoin.h"
+#include "test/testutil.h"
 
 #include <boost/test/unit_test.hpp>
 
@@ -337,10 +338,10 @@ NameIterationTester::verify (const CCoinsView& view) const
   const valtype end = ValtypeFromString ("zzzzzzzzzzzzzzzz");
   {
     valtype name;
-    CNameData data;
+    CNameData nameData;
 
     iter->seek (end);
-    BOOST_CHECK (!iter->next (name, data));
+    BOOST_CHECK (!iter->next (name, nameData));
   }
 
   while (true)
@@ -369,6 +370,13 @@ void
 NameIterationTester::verify ()
 {
   verify (hybrid);
+
+  /* Flush calls BatchWrite internally, and for that to work, we need to have
+     a non-zero block hash.  Just set the block hash based on our counter.  */
+  uint256 dummyBlockHash;
+  *reinterpret_cast<unsigned*> (dummyBlockHash.begin ()) = counter;
+  hybrid.SetBestBlock (dummyBlockHash);
+
   hybrid.Flush ();
   verify (db);
   verify (cache);
@@ -471,19 +479,22 @@ BOOST_AUTO_TEST_CASE (name_iteration)
  * @param scr The script that should be provided as output.
  * @param nHeight The height of the coin.
  * @param view Add it to this view.
- * @return The txid.
+ * @return The out point for the newly added coin.
  */
-static uint256
+static COutPoint
 addTestCoin (const CScript& scr, unsigned nHeight, CCoinsViewCache& view)
 {
+  const CTxOut txout(1000 * COIN, scr);
+
   CMutableTransaction mtx;
-  mtx.vout.push_back (CTxOut (1000 * COIN, scr));
+  mtx.vout.push_back (txout);
   const CTransaction tx(mtx);
 
-  CCoinsModifier entry = view.ModifyCoins (tx.GetHash ());
-  *entry = CCoins (tx, nHeight);
+  Coin coin(txout, nHeight, false);
+  const COutPoint outp(tx.GetHash (), 0);
+  view.AddCoin (outp, std::move (coin), false);
 
-  return tx.GetHash ();
+  return outp;
 }
 
 BOOST_AUTO_TEST_CASE (name_tx_verification)
@@ -513,13 +524,13 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
                                                               value, rand);
   const CScript scrUpdate = CNameScript::buildNameUpdate (addr, name1, value);
 
-  const uint256 inCoin = addTestCoin (addr, 1, view);
-  const uint256 inNew = addTestCoin (scrNew, 100000, view);
-  const uint256 inFirst = addTestCoin (scrFirst, 100000, view);
-  const uint256 inUpdate = addTestCoin (scrUpdate, 100000, view);
+  const COutPoint inCoin = addTestCoin (addr, 1, view);
+  const COutPoint inNew = addTestCoin (scrNew, 100000, view);
+  const COutPoint inFirst = addTestCoin (scrFirst, 100000, view);
+  const COutPoint inUpdate = addTestCoin (scrUpdate, 100000, view);
 
   CNameData data1;
-  data1.fromScript (100000, COutPoint (inFirst, 0), CNameScript (scrFirst));
+  data1.fromScript (100000, inFirst, CNameScript (scrFirst));
   view.SetName (name1, data1, false);
 
   /* ****************************************************** */
@@ -530,7 +541,7 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
   CScript scr;
   std::string reason;
 
-  mtx.vin.push_back (CTxIn (COutPoint (inCoin, 0)));
+  mtx.vin.push_back (CTxIn (inCoin));
   mtx.vout.push_back (CTxOut (COIN, addr));
   const CTransaction baseTx(mtx);
 
@@ -541,10 +552,10 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
 
   /* Name tx should be Namecoin version.  */
   mtx = CMutableTransaction (baseTx);
-  mtx.vin.push_back (CTxIn (COutPoint (inNew, 0)));
+  mtx.vin.push_back (CTxIn (inNew));
   BOOST_CHECK (!CheckNameTransaction (mtx, 200000, view, state, 0));
   mtx.SetNamecoin ();
-  mtx.vin.push_back (CTxIn (COutPoint (inUpdate, 0)));
+  mtx.vin.push_back (CTxIn (inUpdate));
   BOOST_CHECK (!CheckNameTransaction (mtx, 200000, view, state, 0));
 
   /* Duplicate name outs are not allowed.  */
@@ -564,7 +575,7 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
   mtx.SetNamecoin ();
   mtx.vout.push_back (CTxOut (COIN, scrNew));
   BOOST_CHECK (CheckNameTransaction (mtx, 200000, view, state, 0));
-  mtx.vin.push_back (CTxIn (COutPoint (inNew, 0)));
+  mtx.vin.push_back (CTxIn (inNew));
   BOOST_CHECK (!CheckNameTransaction (mtx, 200000, view, state, 0));
   BOOST_CHECK (IsStandardTx (mtx, reason));
 
@@ -585,7 +596,7 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
      as previous state of the name, and one has the NAME_UPDATE.  */
   CCoinsViewCache viewFirst(&view);
   CCoinsViewCache viewUpd(&view);
-  data1.fromScript (100000, COutPoint (inUpdate, 0), CNameScript (scrUpdate));
+  data1.fromScript (100000, inUpdate, CNameScript (scrUpdate));
   viewUpd.SetName (name1, data1, false);
 
   /* Check update of UPDATE output, plus expiry.  */
@@ -593,14 +604,14 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
   mtx.SetNamecoin ();
   mtx.vout.push_back (CTxOut (COIN, scrUpdate));
   BOOST_CHECK (!CheckNameTransaction (mtx, 135999, viewUpd, state, 0));
-  mtx.vin.push_back (CTxIn (COutPoint (inUpdate, 0)));
+  mtx.vin.push_back (CTxIn (inUpdate));
   BOOST_CHECK (CheckNameTransaction (mtx, 135999, viewUpd, state, 0));
   BOOST_CHECK (!CheckNameTransaction (mtx, 136000, viewUpd, state, 0));
   BOOST_CHECK (IsStandardTx (mtx, reason));
 
   /* Check update of FIRSTUPDATE output, plus expiry.  */
   mtx.vin.clear ();
-  mtx.vin.push_back (CTxIn (COutPoint (inFirst, 0)));
+  mtx.vin.push_back (CTxIn (inFirst));
   BOOST_CHECK (CheckNameTransaction (mtx, 135999, viewFirst, state, 0));
   BOOST_CHECK (!CheckNameTransaction (mtx, 136000, viewFirst, state, 0));
 
@@ -612,7 +623,7 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
   /* Value length limits.  */
   mtx = CMutableTransaction (baseTx);
   mtx.SetNamecoin ();
-  mtx.vin.push_back (CTxIn (COutPoint (inUpdate, 0)));
+  mtx.vin.push_back (CTxIn (inUpdate));
   scr = CNameScript::buildNameUpdate (addr, name1, tooLongValue);
   mtx.vout.push_back (CTxOut (COIN, scr));
   BOOST_CHECK (!CheckNameTransaction (mtx, 110000, viewUpd, state, 0));
@@ -627,7 +638,7 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
   mtx = CMutableTransaction (baseTx);
   mtx.SetNamecoin ();
   mtx.vout.push_back (CTxOut (COIN, scrUpdate));
-  mtx.vin.push_back (CTxIn (COutPoint (inNew, 0)));
+  mtx.vin.push_back (CTxIn (inNew));
   CCoinsViewCache viewNew(&view);
   viewNew.DeleteName (name1);
   BOOST_CHECK (!CheckNameTransaction (mtx, 110000, viewNew, state, 0));
@@ -643,7 +654,7 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
   mtx.SetNamecoin ();
   mtx.vout.push_back (CTxOut (COIN, scrFirst));
   BOOST_CHECK (!CheckNameTransaction (mtx, 100012, viewClean, state, 0));
-  mtx.vin.push_back (CTxIn (COutPoint (inNew, 0)));
+  mtx.vin.push_back (CTxIn (inNew));
   BOOST_CHECK (CheckNameTransaction (mtx, 100012, viewClean, state, 0));
   BOOST_CHECK (IsStandardTx (mtx, reason));
 
@@ -672,10 +683,10 @@ BOOST_AUTO_TEST_CASE (name_tx_verification)
   mtx = CMutableTransaction (baseTx);
   mtx.SetNamecoin ();
   mtx.vout.push_back (CTxOut (COIN, scrFirst));
-  mtx.vin.push_back (CTxIn (COutPoint (inUpdate, 0)));
+  mtx.vin.push_back (CTxIn (inUpdate));
   BOOST_CHECK (!CheckNameTransaction (mtx, 100012, viewClean, state, 0));
   mtx.vin.clear ();
-  mtx.vin.push_back (CTxIn (COutPoint (inFirst, 0)));
+  mtx.vin.push_back (CTxIn (inFirst));
   BOOST_CHECK (!CheckNameTransaction (mtx, 100012, viewClean, state, 0));
 }
 
@@ -775,14 +786,14 @@ BOOST_AUTO_TEST_CASE (name_expire_utxo)
      to the base in any case.  */
   CCoinsViewCache view(pcoinsTip);
 
-  const uint256 coinId1 = addTestCoin (upd1, 100000, view);
-  const uint256 coinId2 = addTestCoin (upd2, 100010, view);
+  const COutPoint coinId1 = addTestCoin (upd1, 100000, view);
+  const COutPoint coinId2 = addTestCoin (upd2, 100010, view);
 
   CNameData data;
-  data.fromScript (100000, COutPoint (coinId1, 0), op1);
+  data.fromScript (100000, coinId1, op1);
   view.SetName (name1, data, false);
   BOOST_CHECK (!data.isExpired (135999) && data.isExpired (136000));
-  data.fromScript (100010, COutPoint (coinId2, 0), op2);
+  data.fromScript (100010, coinId2, op2);
   view.SetName (name2, data, false);
   BOOST_CHECK (!data.isExpired (136009) && data.isExpired (136010));
 
@@ -792,45 +803,45 @@ BOOST_AUTO_TEST_CASE (name_expire_utxo)
   BOOST_CHECK (view.GetNamesForHeight (100010, setExpired));
   BOOST_CHECK (setExpired.size () == 1 && *setExpired.begin () == name2);
 
-  CCoins coin1, coin2;
-  BOOST_CHECK (view.GetCoins (coinId1, coin1));
-  BOOST_CHECK (view.GetCoins (coinId2, coin2));
+  Coin coin1, coin2;
+  BOOST_CHECK (view.GetCoin (coinId1, coin1));
+  BOOST_CHECK (view.GetCoin (coinId2, coin2));
 
   CBlockUndo undo1, undo2;
-  CCoins coins;
+  Coin coin;
 
   /* None of the two names should be expired.  */
   BOOST_CHECK (ExpireNames (135999, view, undo1, setExpired));
   BOOST_CHECK (undo1.vexpired.empty ());
   BOOST_CHECK (setExpired.empty ());
-  BOOST_CHECK (view.GetCoins (coinId1, coins));
-  BOOST_CHECK (coins == coin1);
-  BOOST_CHECK (view.GetCoins (coinId2, coins));
-  BOOST_CHECK (coins == coin2);
+  BOOST_CHECK (view.GetCoin (coinId1, coin));
+  BOOST_CHECK (coin == coin1);
+  BOOST_CHECK (view.GetCoin (coinId2, coin));
+  BOOST_CHECK (coin == coin2);
 
   /* The first name expires.  */
   BOOST_CHECK (ExpireNames (136000, view, undo1, setExpired));
   BOOST_CHECK (undo1.vexpired.size () == 1);
-  BOOST_CHECK (undo1.vexpired[0].txout == coin1.vout[0]);
+  BOOST_CHECK (undo1.vexpired[0] == coin1);
   BOOST_CHECK (setExpired.size () == 1 && *setExpired.begin () == name1);
-  BOOST_CHECK (!view.GetCoins (coinId1, coins));
-  BOOST_CHECK (view.GetCoins (coinId2, coins));
-  BOOST_CHECK (coins == coin2);
+  BOOST_CHECK (!view.GetCoin (coinId1, coin));
+  BOOST_CHECK (view.GetCoin (coinId2, coin));
+  BOOST_CHECK (coin == coin2);
 
   /* Also the second name expires.  */
   BOOST_CHECK (ExpireNames (136010, view, undo2, setExpired));
   BOOST_CHECK (undo2.vexpired.size () == 1);
-  BOOST_CHECK (undo2.vexpired[0].txout == coin2.vout[0]);
+  BOOST_CHECK (undo2.vexpired[0] == coin2);
   BOOST_CHECK (setExpired.size () == 1 && *setExpired.begin () == name2);
-  BOOST_CHECK (!view.GetCoins (coinId1, coins));
-  BOOST_CHECK (!view.GetCoins (coinId2, coins));
+  BOOST_CHECK (!view.GetCoin (coinId1, coin));
+  BOOST_CHECK (!view.GetCoin (coinId2, coin));
 
   /* Undo the second expiration.  */
   BOOST_CHECK (UnexpireNames (136010, undo2, view, setExpired));
   BOOST_CHECK (setExpired.size () == 1 && *setExpired.begin () == name2);
-  BOOST_CHECK (!view.GetCoins (coinId1, coins));
-  BOOST_CHECK (view.GetCoins (coinId2, coins));
-  BOOST_CHECK (coins == coin2);
+  BOOST_CHECK (!view.GetCoin (coinId1, coin));
+  BOOST_CHECK (view.GetCoin (coinId2, coin));
+  BOOST_CHECK (coin == coin2);
 
   /* Undoing at the wrong height should fail.  */
   BOOST_CHECK (!UnexpireNames (136001, undo1, view, setExpired));
@@ -839,10 +850,10 @@ BOOST_AUTO_TEST_CASE (name_expire_utxo)
   /* Undo the first expiration.  */
   BOOST_CHECK (UnexpireNames (136000, undo1, view, setExpired));
   BOOST_CHECK (setExpired.size () == 1 && *setExpired.begin () == name1);
-  BOOST_CHECK (view.GetCoins (coinId1, coins));
-  BOOST_CHECK (coins == coin1);
-  BOOST_CHECK (view.GetCoins (coinId2, coins));
-  BOOST_CHECK (coins == coin2);
+  BOOST_CHECK (view.GetCoin (coinId1, coin));
+  BOOST_CHECK (coin == coin1);
+  BOOST_CHECK (view.GetCoin (coinId2, coin));
+  BOOST_CHECK (coin == coin2);
 }
 
 /* ************************************************************************** */
@@ -933,10 +944,10 @@ BOOST_AUTO_TEST_CASE (name_mempool)
 
   /* Add name_new's with "stealing" check.  */
   const LockPoints lp;
-  const CTxMemPoolEntry entryNew1(txNew1, 0, 0, 0, 100, true,
-                                  COIN, false, 1, lp);
-  const CTxMemPoolEntry entryNew2(txNew2, 0, 0, 0, 100, true,
-                                  COIN, false, 1, lp);
+  const CTxMemPoolEntry entryNew1(MakeTransactionRef(txNew1), 0, 0, 100,
+                                  false, 1, lp);
+  const CTxMemPoolEntry entryNew2(MakeTransactionRef(txNew2), 0, 0, 100,
+                                  false, 1, lp);
   BOOST_CHECK (entryNew1.isNameNew () && entryNew2.isNameNew ());
   BOOST_CHECK (entryNew1.getNameNewHash () == vchHash1
                 && entryNew2.getNameNewHash () == vchHash2);
@@ -946,8 +957,8 @@ BOOST_AUTO_TEST_CASE (name_mempool)
   BOOST_CHECK (mempool.checkNameOps (txNew1) && mempool.checkNameOps (txNew2));
 
   /* Add a name registration.  */
-  const CTxMemPoolEntry entryReg(txReg1, 0, 0, 0, 100, true,
-                                 COIN, false, 1, lp);
+  const CTxMemPoolEntry entryReg(MakeTransactionRef(txReg1), 0, 0, 100,
+                                 false, 1, lp);
   BOOST_CHECK (entryReg.isNameRegistration () && !entryReg.isNameUpdate ());
   BOOST_CHECK (entryReg.getName () == nameReg);
   mempool.addUnchecked (entryReg.GetTx ().GetHash (), entryReg);
@@ -956,8 +967,8 @@ BOOST_AUTO_TEST_CASE (name_mempool)
   BOOST_CHECK (!mempool.checkNameOps (txReg2) && mempool.checkNameOps (txUpd1));
 
   /* Add a name update.  */
-  const CTxMemPoolEntry entryUpd(txUpd1, 0, 0, 0, 100, true,
-                                 COIN, false, 1, lp);
+  const CTxMemPoolEntry entryUpd(MakeTransactionRef(txUpd1), 0, 0, 100,
+                                 false, 1, lp);
   BOOST_CHECK (!entryUpd.isNameRegistration () && entryUpd.isNameUpdate ());
   BOOST_CHECK (entryUpd.getName () == nameUpd);
   mempool.addUnchecked (entryUpd.GetTx ().GetHash (), entryUpd);
@@ -975,28 +986,22 @@ BOOST_AUTO_TEST_CASE (name_mempool)
   CNameData data;
   data.fromScript (100, COutPoint (uint256 (), 0), nameOp);
   view.SetName (nameUpd, data, false);
-  mempool.setSanityCheck (1.0, false);
-  mempool.check (&view);
+  mempool.checkNames (&view);
 
   /* Remove the transactions again.  */
 
-  std::list<CTransaction> removed;
-  mempool.removeRecursive (txReg1, removed);
+  mempool.removeRecursive (txReg1);
   BOOST_CHECK (!mempool.registersName (nameReg));
   BOOST_CHECK (mempool.checkNameOps (txReg1) && mempool.checkNameOps (txReg2));
   BOOST_CHECK (!mempool.checkNameOps (txUpd2));
-  BOOST_CHECK (removed.size () == 1);
 
-  mempool.removeRecursive (txUpd1, removed);
+  mempool.removeRecursive (txUpd1);
   BOOST_CHECK (!mempool.updatesName (nameUpd));
   BOOST_CHECK (mempool.checkNameOps (txUpd1) && mempool.checkNameOps (txUpd2));
   BOOST_CHECK (mempool.checkNameOps (txReg1));
-  BOOST_CHECK (removed.size () == 2);
 
-  removed.clear ();
-  mempool.removeRecursive (txNew1, removed);
-  mempool.removeRecursive (txNew2, removed);
-  BOOST_CHECK (removed.size () == 2);
+  mempool.removeRecursive (txNew1);
+  mempool.removeRecursive (txNew2);
   BOOST_CHECK (!mempool.checkNameOps (txNew1p));
   BOOST_CHECK (mempool.checkNameOps (txNew1) && mempool.checkNameOps (txNew2));
 
@@ -1010,11 +1015,13 @@ BOOST_AUTO_TEST_CASE (name_mempool)
   BOOST_CHECK (mempool.registersName (nameReg));
   BOOST_CHECK (!mempool.checkNameOps (txReg2));
 
-  removed.clear ();
-  std::list<CTransaction> dummyConflicts;
-  mempool.removeConflicts (txReg2, dummyConflicts, removed);
-  BOOST_CHECK (removed.size () == 1);
-  BOOST_CHECK (removed.front ().GetHash () == txReg1.GetHash ());
+  {
+    CNameConflictTracker tracker(mempool);
+    mempool.removeConflicts (txReg2);
+    BOOST_CHECK (tracker.GetNameConflicts ().size () == 1);
+    BOOST_CHECK (tracker.GetNameConflicts ().front ()->GetHash ()
+                  == txReg1.GetHash ());
+  }
   BOOST_CHECK (!mempool.registersName (nameReg));
   BOOST_CHECK (mempool.mapTx.empty ());
 
@@ -1026,10 +1033,13 @@ BOOST_AUTO_TEST_CASE (name_mempool)
 
   std::set<valtype> names;
   names.insert (nameUpd);
-  removed.clear ();
-  mempool.removeExpireConflicts (names, removed);
-  BOOST_CHECK (removed.size () == 1);
-  BOOST_CHECK (removed.front ().GetHash () == txUpd1.GetHash ());
+  {
+    CNameConflictTracker tracker(mempool);
+    mempool.removeExpireConflicts (names);
+    BOOST_CHECK (tracker.GetNameConflicts ().size () == 1);
+    BOOST_CHECK (tracker.GetNameConflicts ().front ()->GetHash ()
+                  == txUpd1.GetHash ());
+  }
   BOOST_CHECK (!mempool.updatesName (nameUpd));
   BOOST_CHECK (mempool.mapTx.empty ());
 
@@ -1041,10 +1051,13 @@ BOOST_AUTO_TEST_CASE (name_mempool)
 
   names.clear ();
   names.insert (nameReg);
-  removed.clear ();
-  mempool.removeUnexpireConflicts (names, removed);
-  BOOST_CHECK (removed.size () == 1);
-  BOOST_CHECK (removed.front ().GetHash () == txReg1.GetHash ());
+  {
+    CNameConflictTracker tracker(mempool);
+    mempool.removeUnexpireConflicts (names);
+    BOOST_CHECK (tracker.GetNameConflicts ().size () == 1);
+    BOOST_CHECK (tracker.GetNameConflicts ().front ()->GetHash ()
+                  == txReg1.GetHash ());
+  }
   BOOST_CHECK (!mempool.registersName (nameReg));
   BOOST_CHECK (mempool.mapTx.empty ());
 }

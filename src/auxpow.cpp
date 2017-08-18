@@ -12,11 +12,11 @@
 #include "consensus/merkle.h"
 #include "consensus/validation.h"
 #include "hash.h"
-#include "main.h"
 #include "script/script.h"
 #include "txmempool.h"
 #include "util.h"
 #include "utilstrencodings.h"
+#include "validation.h"
 
 #include <algorithm>
 
@@ -25,38 +25,20 @@
 
 const uint256 CMerkleTx::ABANDON_HASH(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
 
-int CMerkleTx::SetMerkleBranch(const CBlock& block)
+void CMerkleTx::SetMerkleBranch(const CBlockIndex* pindex, int posInBlock)
 {
-    AssertLockHeld(cs_main);
-    CBlock blockTmp;
-
     // Update the tx's hashBlock
+    hashBlock = pindex->GetBlockHash();
+
+    // set the position of the transaction in the block
+    nIndex = posInBlock;
+}
+
+void CMerkleTx::InitMerkleBranch(const CBlock& block, int posInBlock)
+{
     hashBlock = block.GetHash();
-
-    // Locate the transaction
-    for (nIndex = 0; nIndex < (int)block.vtx.size(); nIndex++)
-        if (block.vtx[nIndex] == *(CTransaction*)this)
-            break;
-    if (nIndex == (int)block.vtx.size())
-    {
-        vMerkleBranch.clear();
-        nIndex = -1;
-        LogPrintf("ERROR: SetMerkleBranch(): couldn't find tx in block\n");
-        return 0;
-    }
-
-    // Fill in merkle branch
+    nIndex = posInBlock;
     vMerkleBranch = BlockMerkleBranch (block, nIndex);
-
-    // Is the tx in a block that's in the main chain
-    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
-    if (mi == mapBlockIndex.end())
-        return 0;
-    const CBlockIndex* pindex = (*mi).second;
-    if (!pindex || !chainActive.Contains(pindex))
-        return 0;
-
-    return chainActive.Height() - pindex->nHeight + 1;
 }
 
 int CMerkleTx::GetDepthInMainChain(const CBlockIndex* &pindexRet) const
@@ -86,10 +68,9 @@ int CMerkleTx::GetBlocksToMaturity() const
 }
 
 
-bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, CAmount nAbsurdFee)
+bool CMerkleTx::AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& state)
 {
-    CValidationState state;
-    return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, NULL, false, nAbsurdFee);
+    return ::AcceptToMemoryPool(mempool, state, tx, true, NULL, NULL, false, nAbsurdFee);
 }
 
 /* ************************************************************************** */
@@ -118,7 +99,7 @@ CAuxPow::check (const uint256& hashAuxBlock, int nChainId,
           != parentBlock.hashMerkleRoot)
         return error("Aux POW merkle root incorrect");
 
-    const CScript script = vin[0].scriptSig;
+    const CScript script = tx->vin[0].scriptSig;
 
     // Check that the same work is not submitted twice to our chain.
     //
@@ -238,16 +219,17 @@ CAuxPow::initAuxPow (CBlockHeader& header)
   coinbase.vin[0].prevout.SetNull ();
   coinbase.vin[0].scriptSig = (CScript () << inputData);
   assert (coinbase.vout.empty ());
+  CTransactionRef coinbaseRef = MakeTransactionRef (coinbase);
 
   /* Build a fake parent block with the coinbase.  */
   CBlock parent;
   parent.nVersion = 1;
   parent.vtx.resize (1);
-  parent.vtx[0] = coinbase;
+  parent.vtx[0] = coinbaseRef;
   parent.hashMerkleRoot = BlockMerkleRoot (parent);
 
   /* Construct the auxpow object.  */
-  header.SetAuxpow (new CAuxPow (coinbase));
+  header.SetAuxpow (new CAuxPow (coinbaseRef));
   assert (header.auxpow->vChainMerkleBranch.empty ());
   header.auxpow->nChainIndex = 0;
   assert (header.auxpow->vMerkleBranch.empty ());

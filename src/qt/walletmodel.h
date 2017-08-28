@@ -8,6 +8,7 @@
 #include "names/common.h"
 #include "paymentrequestplus.h"
 #include "walletmodeltransaction.h"
+#include "wallet/wallet.h" // for dbw
 
 #include "support/allocators/secure.h"
 
@@ -243,6 +244,8 @@ private:
     CWallet *wallet;
     bool fHaveWatchOnly;
     bool fForceCheckBalanceChanged;
+
+    std::unique_ptr<CWalletDBWrapper> dbw;
 
     // Wallet has an options model for wallet-specific options
     // (transaction fee, for example)

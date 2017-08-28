@@ -112,7 +112,6 @@ BITCOIN_TESTS += \
   wallet/test/accounting_tests.cpp \
   wallet/test/wallet_tests.cpp \
   wallet/test/crypto_tests.cpp \
-  wallet/test/rpc_wallet_tests.cpp \
   wallet/test/wallet_name_pending_tests.cpp
 endif
 

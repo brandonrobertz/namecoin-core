@@ -7,16 +7,19 @@
 #include "ui_interface.h"
 #include "platformstyle.h"
 
-#include "main.h"
 #include "names/common.h"
 #include "util.h"
 #include "protocol.h"
 #include "rpc/server.h"
+#include "validation.h" // cs_main
 
 #include <univalue.h>
 
 #include <QTimer>
 #include <QObject>
+
+// in wallet/rpcwallet.cpp
+extern UniValue name_list(const JSONRPCRequest& request);
 
 // ExpiresIn column is right-aligned as it contains numbers
 static int column_alignments[] = {
@@ -73,9 +76,11 @@ public:
         cachedNameTable.clear();
         std::map< std::string, NameTableEntry > vNamesO;
 
+        JSONRPCRequest jsonRequest;
+        jsonRequest.params = NullUniValue;
         UniValue names;
         try {
-            names = name_list(NullUniValue, false).get_array();
+            names = name_list(jsonRequest).get_array();
         } catch (const UniValue& e) {
             LogPrintf ("name_list lookup error: %s\n", e.getValStr().c_str());
         }
@@ -90,11 +95,11 @@ public:
         }
 
         // Add existing names
-        BOOST_FOREACH(const PAIRTYPE(std::string, NameTableEntry)& item, vNamesO)
+        for(std::pair<std::string, NameTableEntry> item : vNamesO)
             cachedNameTable.append(item.second);
 
         // Add pending names (name_new)
-        BOOST_FOREACH(const PAIRTYPE(std::string, NameNewReturn)& item, pendingNameFirstUpdate)
+        for(std::pair<std::string, NameNewReturn> item : pendingNameFirstUpdate)
             cachedNameTable.append(
                 NameTableEntry(item.first,
                                item.second.data,
@@ -327,7 +332,7 @@ void NameTableModel::updateTransaction(const QString &hash, int status)
             LogPrintf ("tx %s has no name in wallet\n", strHash);
             return;
         }
-        tx = mi->second;
+        CTransaction tx(mi->second);
     }
 
     valtype valName;

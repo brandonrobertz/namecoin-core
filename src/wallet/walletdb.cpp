@@ -9,6 +9,7 @@
 #include "consensus/tx_verify.h"
 #include "consensus/validation.h"
 #include "fs.h"
+#include "names/common.h"
 #include "protocol.h"
 #include "serialize.h"
 #include "sync.h"
@@ -17,6 +18,7 @@
 #include "wallet/wallet.h"
 
 #include <atomic>
+#include <univalue.h>
 
 #include <boost/thread.hpp>
 
@@ -157,14 +159,12 @@ bool CWalletDB::WriteMinVersion(int nVersion)
 
 bool CWalletDB::WriteNameFirstUpdate(const std::string& name, const std::string& data)
 {
-    nWalletDBUpdated++;
-    return Write(std::make_pair(std::string("pending_firstupdate"), name), data);
+    return WriteIC(std::make_pair(std::string("pending_firstupdate"), name), data);
 }
 
 bool CWalletDB::EraseNameFirstUpdate(const std::string& name)
 {
-    nWalletDBUpdated++;
-    return Erase(std::make_pair(string("pending_firstupdate"), name));
+    return EraseIC(std::make_pair(std::string("pending_firstupdate"), name));
 }
 
 bool CWalletDB::ReadAccount(const std::string& strAccount, CAccount& account)

@@ -17,7 +17,7 @@
 
 #include "base58.h"
 #include "chain.h"
-#include "keystore.h
+#include "keystore.h"
 // MERGE NOTE -- we may need main.h here
 #include "names/common.h"
 #include "rpc/server.h"
@@ -43,6 +43,13 @@
 #include <boost/foreach.hpp>
 #include <map>
 #include <univalue.h>
+
+/* We need the following functions declared for use in the QT UI */
+extern UniValue name_new(const JSONRPCRequest& request);
+extern UniValue name_show(const JSONRPCRequest& request);
+extern UniValue name_update(const JSONRPCRequest& request);
+extern UniValue name_firstupdate(const JSONRPCRequest& request);
+extern UniValue gettransaction(const JSONRPCRequest& request);
 
 WalletModel::WalletModel(const PlatformStyle *platformStyle, CWallet *_wallet, OptionsModel *_optionsModel, QWidget *parent) :
     QWidget(parent), wallet(_wallet), optionsModel(_optionsModel), addressTableModel(0),
@@ -681,14 +688,6 @@ bool WalletModel::transactionCanBeBumped(uint256 hash) const
     return wtx && SignalsOptInRBF(*wtx) && !wtx->mapValue.count("replaced_by_txid");
 }
 
-
-bool WalletModel::abandonTransaction(uint256 hash) const
-{
-    LOCK2(cs_main, wallet->cs_wallet);
-    return wallet->AbandonTransaction(hash);
-}
-
-
 bool WalletModel::bumpFee(uint256 hash)
 {
     std::unique_ptr<CFeeBumper> feeBump;
@@ -784,14 +783,16 @@ bool WalletModel::getDefaultWalletRbf() const
 
 bool WalletModel::nameAvailable(const QString &name)
 {
+    JSONRPCRequest jsonRequest;
     UniValue params (UniValue::VOBJ);
     UniValue res, array, isExpired;
 
     const std::string strName = name.toStdString();
     params.push_back (Pair("name", strName));
+    jsonRequest.params = params;
 
     try {
-        res = name_show( params, false);
+        res = name_show(jsonRequest);
     } catch (const UniValue& e) {
         return true;
     }
@@ -808,6 +809,7 @@ NameNewReturn WalletModel::nameNew(const QString &name)
     std::string strName = name.toStdString ();
     std::string data;
 
+    JSONRPCRequest jsonRequest;
     UniValue params(UniValue::VOBJ);
     std::vector<UniValue> values;
     UniValue res, txid, rand;
@@ -815,8 +817,9 @@ NameNewReturn WalletModel::nameNew(const QString &name)
     NameNewReturn retval;
 
     params.push_back (Pair("name", strName));
+    jsonRequest.params = params;
     try {
-        res = name_new (params, false);
+        res = name_new (jsonRequest);
     } catch (const UniValue& e) {
         UniValue message = find_value( e, "message");
         std::string errorStr = message.get_str();
@@ -884,12 +887,14 @@ QString WalletModel::nameFirstUpdatePrepare(const QString& name, const QString& 
 
     std::string jsonData = uniNameUpdateData.write();
     LogPrintf ("Writing name_firstupdate %s => %s\n", strName.c_str(), jsonData.c_str());
-    wallet->WriteNameFirstUpdate(strName, jsonData);
+
+    WalletDB(*dbw).WriteNameFirstUpdate(strName, jsonData);
     return tr("");
 }
 
 std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress)
 {
+    JSONRPCRequest jsonRequest;
     UniValue params(UniValue::VOBJ);
     UniValue res;
     std::string errorStr;
@@ -901,8 +906,9 @@ std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::
     if(!toaddress.empty())
         params.push_back (Pair("toaddress", toaddress));
 
+    jsonRequest.params = params;
     try {
-        res = name_firstupdate (params, false);
+        res = name_firstupdate (jsonRequest);
     }
     catch (const UniValue& e) {
         UniValue message = find_value( e, "message");
@@ -917,6 +923,7 @@ void WalletModel::sendPendingNameFirstUpdates()
     for (std::map<std::string, NameNewReturn>::iterator i = pendingNameFirstUpdate.begin();
          i != pendingNameFirstUpdate.end(); )
     {
+        JSONRPCRequest jsonRequest;
         UniValue params1(UniValue::VOBJ);
         UniValue res1, val;
         // hold the error returned from name_firstupdate, via
@@ -931,11 +938,11 @@ void WalletModel::sendPendingNameFirstUpdates()
         std::string toaddress = i->second.toaddress;
 
         params1.push_back (Pair("txid", txid));
-
+        jsonRequest.params = params1;
         // if we're here, the names doesn't exist
         // should we remove it from the DB?
         try {
-            res1 = gettransaction( params1, false);
+            res1 = gettransaction( jsonRequest);
         }
         catch (const UniValue& e) {
             UniValue message = find_value( e, "message");
@@ -1029,7 +1036,7 @@ void WalletModel::sendPendingNameFirstUpdates()
         }
 
         pendingNameFirstUpdate.erase(i++);
-        wallet->EraseNameFirstUpdate(name);
+        CWalletDB(*dbw).EraseNameFirstUpdate(name);
     }
 }
 
@@ -1039,6 +1046,7 @@ QString WalletModel::nameUpdate(const QString &name, const QString &data, const 
     std::string strData = data.toStdString ();
     std::string strTransferToAddress = transferToAddress.toStdString ();
 
+    JSONRPCRequest jsonRequest;
     UniValue params(UniValue::VOBJ);
     UniValue res;
 
@@ -1047,11 +1055,13 @@ QString WalletModel::nameUpdate(const QString &name, const QString &data, const 
     params.push_back (Pair("name", strName));
     params.push_back (Pair("value", strData));
 
+    jsonRequest.params = params;
+
     if (strTransferToAddress != "")
         params.push_back (Pair("toaddress", strTransferToAddress));
 
     try {
-        res = name_update (params, false);
+        res = name_update (jsonRequest);
     }
     catch (const UniValue& e) {
         UniValue message = find_value( e, "message");

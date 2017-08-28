@@ -6,12 +6,12 @@
 #include "csvmodelwriter.h"
 #include "guiutil.h"
 #include "base58.h"
-#include "main.h"
 #include "wallet/wallet.h"
 #include "ui_interface.h"
 #include "configurenamedialog.h"
 #include "platformstyle.h"
 #include "util.h"
+#include "validation.h" // cs_main
 
 #include <QSortFilterProxyModel>
 #include <QMessageBox>

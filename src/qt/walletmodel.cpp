@@ -888,7 +888,7 @@ QString WalletModel::nameFirstUpdatePrepare(const QString& name, const QString& 
     std::string jsonData = uniNameUpdateData.write();
     LogPrintf ("Writing name_firstupdate %s => %s\n", strName.c_str(), jsonData.c_str());
 
-    WalletDB(*dbw).WriteNameFirstUpdate(strName, jsonData);
+    CWalletDB(*dbw).WriteNameFirstUpdate(strName, jsonData);
     return tr("");
 }
 

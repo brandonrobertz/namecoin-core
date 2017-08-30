@@ -18,7 +18,6 @@
 #include "base58.h"
 #include "chain.h"
 #include "keystore.h"
-// MERGE NOTE -- we may need main.h here
 #include "names/common.h"
 #include "rpc/server.h"
 #include "validation.h"
@@ -817,7 +816,11 @@ NameNewReturn WalletModel::nameNew(const QString &name)
     NameNewReturn retval;
 
     params.push_back (Pair("name", strName));
+
+    jsonRequest.strMethod = std::string("name_new");
     jsonRequest.params = params;
+    jsonRequest.fHelp = false;
+
     try {
         res = name_new (jsonRequest);
     } catch (const UniValue& e) {
@@ -886,7 +889,7 @@ QString WalletModel::nameFirstUpdatePrepare(const QString& name, const QString& 
         uniNameUpdateData.pushKV ("toaddress", toaddress);
 
     std::string jsonData = uniNameUpdateData.write();
-    LogPrintf ("Writing name_firstupdate %s => %s\n", strName.c_str(), jsonData.c_str());
+    LogPrintf ("Writing pending name_firstupdate %s => %s\n", strName.c_str(), jsonData.c_str());
 
     CWalletDBWrapper& dbw = wallet->GetDBHandle();
     CWalletDB(dbw).WriteNameFirstUpdate(strName, jsonData);
@@ -908,7 +911,13 @@ std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::
     if(!toaddress.empty())
         params.push_back (Pair("toaddress", toaddress));
 
+    jsonRequest.strMethod = std::string("name_firstupdate");
     jsonRequest.params = params;
+    jsonRequest.fHelp = false;
+
+    LogPrintf("executing name_firstupdate name=%s rand=%s tx=%s value=%s\n",
+        name.c_str(), rand.c_str(), txid.c_str(), data.c_str());
+
     try {
         res = name_firstupdate (jsonRequest);
     }

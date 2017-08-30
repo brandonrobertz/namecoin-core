@@ -245,8 +245,6 @@ private:
     bool fHaveWatchOnly;
     bool fForceCheckBalanceChanged;
 
-    std::unique_ptr<CWalletDBWrapper> dbw;
-
     // Wallet has an options model for wallet-specific options
     // (transaction fee, for example)
     OptionsModel *optionsModel;

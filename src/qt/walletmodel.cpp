@@ -888,7 +888,9 @@ QString WalletModel::nameFirstUpdatePrepare(const QString& name, const QString& 
     std::string jsonData = uniNameUpdateData.write();
     LogPrintf ("Writing name_firstupdate %s => %s\n", strName.c_str(), jsonData.c_str());
 
-    CWalletDB(*dbw).WriteNameFirstUpdate(strName, jsonData);
+    CWalletDBWrapper& dbw = wallet->GetDBHandle();
+    CWalletDB(dbw).WriteNameFirstUpdate(strName, jsonData);
+
     return tr("");
 }
 
@@ -1036,7 +1038,9 @@ void WalletModel::sendPendingNameFirstUpdates()
         }
 
         pendingNameFirstUpdate.erase(i++);
-        CWalletDB(*dbw).EraseNameFirstUpdate(name);
+
+        CWalletDBWrapper& dbw = wallet->GetDBHandle();
+        CWalletDB(dbw).EraseNameFirstUpdate(name);
     }
 }
 

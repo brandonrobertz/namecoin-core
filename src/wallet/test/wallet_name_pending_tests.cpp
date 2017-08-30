@@ -11,7 +11,6 @@
 #include "wallet/test/wallet_test_fixture.h"
 
 #include <boost/test/unit_test.hpp>
-
 #include <univalue.h>
 
 extern CWallet* pwalletMain;
@@ -31,7 +30,9 @@ BOOST_AUTO_TEST_CASE(wallet_name_pending_tests)
     uniNameUpdateData.pushKV ("rand", rand);
     uniNameUpdateData.pushKV ("data", data);
 
-    std::unique_ptr<CWalletDBWrapper> dbw(new CWalletDBWrapper(&bitdb, "wallet_test.dat"));
+    //std::unique_ptr<CWalletDBWrapper> dbw(new CWalletDBWrapper(&bitdb, "wallet_test.dat"));
+    CWalletDBWrapper& dbw = pwalletMain->GetDBHandle();
+
     // this gets written to wallet for pending name_firstupdate
     std::string saveData = uniNameUpdateData.write();
     // and some bad data to ensure we dont segfault
@@ -43,27 +44,27 @@ BOOST_AUTO_TEST_CASE(wallet_name_pending_tests)
     // write a valid pending name_update to wallet
     {
         //CWalletDB walletdb(pwalletMain->strWalletFile);
-        BOOST_CHECK(CWalletDB(*dbw).WriteNameFirstUpdate(nameGood, saveData));
+        BOOST_CHECK(CWalletDB(dbw).WriteNameFirstUpdate(nameGood, saveData));
 
         // load the wallet and see if we get our pending name loaded
-        BOOST_CHECK_NO_THROW(CWalletDB(*dbw).LoadWallet(pwalletMain));
+        BOOST_CHECK_NO_THROW(CWalletDB(dbw).LoadWallet(pwalletMain));
 
         // make sure we've added our pending name
         BOOST_CHECK(pendingNameFirstUpdate.size() == 1);
         BOOST_CHECK(pendingNameFirstUpdate.find(nameGood) != pendingNameFirstUpdate.end());
 
         // put a bad name pending to the wallet
-        BOOST_CHECK(CWalletDB(*dbw).WriteNameFirstUpdate(nameBad, badData));
+        BOOST_CHECK(CWalletDB(dbw).WriteNameFirstUpdate(nameBad, badData));
 
         // load the wallet and ensure we don't segfault on the bad data
-        BOOST_CHECK_NO_THROW(CWalletDB(*dbw).LoadWallet(pwalletMain));
+        BOOST_CHECK_NO_THROW(CWalletDB(dbw).LoadWallet(pwalletMain));
         // make sure we dont have this bad pending in memory
         BOOST_CHECK(pendingNameFirstUpdate.size() == 1);
         BOOST_CHECK(pendingNameFirstUpdate.find(nameBad) == pendingNameFirstUpdate.end());
 
         // test removing the names
-        BOOST_CHECK(CWalletDB(*dbw).EraseNameFirstUpdate(nameGood));
-        BOOST_CHECK(CWalletDB(*dbw).EraseNameFirstUpdate(nameBad));
+        BOOST_CHECK(CWalletDB(dbw).EraseNameFirstUpdate(nameGood));
+        BOOST_CHECK(CWalletDB(dbw).EraseNameFirstUpdate(nameBad));
     }
 }
 

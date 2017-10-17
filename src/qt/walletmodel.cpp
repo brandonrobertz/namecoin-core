@@ -1034,6 +1034,7 @@ void WalletModel::sendPendingNameFirstUpdates()
 
         CWalletDBWrapper& dbw = wallet->GetDBHandle();
         CWalletDB(dbw).EraseNameFirstUpdate(name);
+        nameTableModel->updateEntry(QString::fromStdString(name), QString::fromStdString(data), chainActive.Height() + 1, CT_UPDATED);
     }
 }
 

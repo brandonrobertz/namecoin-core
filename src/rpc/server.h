@@ -28,7 +28,6 @@ namespace RPCServer
 {
     void OnStarted(std::function<void ()> slot);
     void OnStopped(std::function<void ()> slot);
-    void OnPreCommand(std::function<void (const CRPCCommand&)> slot);
 }
 
 class CNameData;
@@ -36,7 +35,7 @@ class CNameData;
 /** Wrapper for UniValue::VType, which includes typeAny:
  * Used to denote don't care type. Only used by RPCTypeCheckObj */
 struct UniValueType {
-    UniValueType(UniValue::VType _type) : typeAny(false), type(_type) {}
+    explicit UniValueType(UniValue::VType _type) : typeAny(false), type(_type) {}
     UniValueType() : typeAny(true) {}
     bool typeAny;
     UniValue::VType type;
@@ -139,7 +138,6 @@ public:
     std::string category;
     std::string name;
     rpcfn_type actor;
-    bool okSafeMode;
     std::vector<std::string> argNames;
 };
 
@@ -178,6 +176,8 @@ public:
     bool appendCommand(const std::string& name, const CRPCCommand* pcmd);
 };
 
+bool IsDeprecatedRPCEnabled(const std::string& method);
+
 extern CRPCTable tableRPC;
 
 /**
@@ -193,7 +193,6 @@ extern CAmount AmountFromValue(const UniValue& value);
 extern std::string HelpExampleCli(const std::string& methodname, const std::string& args);
 extern std::string HelpExampleRpc(const std::string& methodname, const std::string& args);
 
-extern void AddRawTxNameOperation(CMutableTransaction& tx, const UniValue& obj);
 extern UniValue getNameInfo(const valtype& name, const valtype& value, const COutPoint& outp, const CScript& addr, int height);
 extern UniValue getNameInfo(const valtype& name, const CNameData& data);
 extern std::string getNameInfoHelp(const std::string& indent, const std::string& trailing);
@@ -201,7 +200,7 @@ extern std::string getNameInfoHelp(const std::string& indent, const std::string&
 bool StartRPC();
 void InterruptRPC();
 void StopRPC();
-std::string JSONRPCExecBatch(const UniValue& vReq);
+std::string JSONRPCExecBatch(const JSONRPCRequest& jreq, const UniValue& vReq);
 
 // Retrieves any serialization flags requested in command line argument
 int RPCSerializationFlags();

@@ -20,9 +20,9 @@ class NameWalletTest (NameTestFramework):
   spentA = zero
   spentB = zero
 
-  def __init__ (self):
+  def set_test_params (self):
     # Set paytxfee to an explicitly known value.
-    super ().__init__ ([["-paytxfee=%s" % txFee]] * 4)
+    self.setup_name_test ([["-paytxfee=%s" % txFee]] * 4)
 
   def getFee (self, ind, txid, extra = zero):
     """
@@ -192,8 +192,8 @@ class NameWalletTest (NameTestFramework):
     self.generate (0, 10)
     self.checkName (3, "destination", "value", None, False)
 
-    assert_raises_jsonrpc (-5, 'name not found',
-                           self.nodes[3].sendtoname, "non-existant", 10)
+    assert_raises_rpc_error (-5, 'name not found',
+                             self.nodes[3].sendtoname, "non-existant", 10)
 
     txid = self.nodes[3].sendtoname ("destination", 10)
     fee = self.getFee (3, txid)
@@ -207,8 +207,8 @@ class NameWalletTest (NameTestFramework):
 
     self.generate (0, 30)
     self.checkName (3, "destination", "value", None, True)
-    assert_raises_jsonrpc (-5, 'the name is expired',
-                           self.nodes[3].sendtoname, "destination", 10)
+    assert_raises_rpc_error (-5, 'the name is expired',
+                             self.nodes[3].sendtoname, "destination", 10)
 
 if __name__ == '__main__':
   NameWalletTest ().main ()

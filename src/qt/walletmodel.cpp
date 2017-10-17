@@ -1017,13 +1017,8 @@ void WalletModel::sendPendingNameFirstUpdates()
             completedResult = this->completePendingNameFirstUpdate(name, rand, txid, data, toaddress);
         }
 
-        if(completedResult.empty())
-        {
-          ++i;
-          continue;
-        }
         // if we got an error on name_firstupdate. prompt user for what to do
-        else
+        if(!completedResult.empty())
         {
             QString errorMsg = tr("Namecoin Core has encountered an error "
                                   "while attempting to complete your name "

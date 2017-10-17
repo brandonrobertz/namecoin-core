@@ -985,12 +985,7 @@ void WalletModel::sendPendingNameFirstUpdates()
         {
             if (QMessageBox::Yes != QMessageBox::question(this,
                   tr("Confirm wallet unlock"),
-                  tr("Namecoin Core is about to finalize your name registration "
-                     "for name <b>%1</b>, by sending name_firstupdate. If your "
-                     "wallet is locked, you will be prompted to unlock it. "
-                     "Pressing cancel will delay your name registration by one "
-                     "block, at which point you will be prompted again. Would "
-                     "you like to proceed?").arg(QString::fromStdString(name)),
+                  tr("Namecoin Core is about to finalize your name registration for name <b>%1</b>, by sending name_firstupdate. If your wallet is locked, you will be prompted to unlock it. Pressing cancel will delay your name registration by one block, at which point you will be prompted again. Would you like to proceed?").arg(QString::fromStdString(name)),
                   QMessageBox::Yes|QMessageBox::Cancel,
                   QMessageBox::Cancel))
             {
@@ -1020,13 +1015,7 @@ void WalletModel::sendPendingNameFirstUpdates()
         // if we got an error on name_firstupdate. prompt user for what to do
         if(!completedResult.empty())
         {
-            QString errorMsg = tr("Namecoin Core has encountered an error "
-                                  "while attempting to complete your name "
-                                  "registration for name <b>%1</b>. The "
-                                  "name_firstupdate operation caused the "
-                                  "following error to occurr:<br><br>%2"
-                                  "<br><br>Would you like to cancel the "
-                                  "pending name registration?")
+            QString errorMsg = tr("Namecoin Core has encountered an error while attempting to complete your name registration for name <b>%1</b>. The name_firstupdate operation caused the following error to occurr:<br><br>%2<br><br>Would you like to cancel the pending name registration?")
                 .arg(QString::fromStdString(name))
                 .arg(QString::fromStdString(completedResult));
             // if they didnt hit yes, move onto next pending op, otherwise

@@ -105,7 +105,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
                 foundNameOp = true;
                 nameScript = cur;
                 ExtractDestination(txout.scriptPubKey, address);
-                nameAddress = CBitcoinAddress(address).ToString();
+                nameAddress = EncodeDestination(address);
             }
         }
 

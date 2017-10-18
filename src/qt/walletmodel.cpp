@@ -20,6 +20,7 @@
 #include "keystore.h"
 #include "names/common.h"
 #include "rpc/server.h"
+#include "rpc/client.h"
 #include "validation.h"
 #include "net.h" // for g_connman
 #include "policy/fees.h"
@@ -45,7 +46,6 @@
 
 /* We need the following functions declared for use in the QT UI */
 extern UniValue name_new(const JSONRPCRequest& request);
-extern UniValue name_show(const JSONRPCRequest& request);
 extern UniValue name_update(const JSONRPCRequest& request);
 extern UniValue name_firstupdate(const JSONRPCRequest& request);
 extern UniValue gettransaction(const JSONRPCRequest& request);
@@ -788,10 +788,13 @@ bool WalletModel::nameAvailable(const QString &name)
 
     const std::string strName = name.toStdString();
     params.push_back (Pair("name", strName));
+    jsonRequest.strMethod = "name_show";
     jsonRequest.params = params;
+    jsonRequest.fHelp = false;
 
     try {
-        res = name_show(jsonRequest);
+        res = tableRPC.execute(jsonRequest);
+
     } catch (const UniValue& e) {
         return true;
     }

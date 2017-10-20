@@ -7,6 +7,7 @@
 #define BITCOIN_WALLET_WALLETDB_H
 
 #include "amount.h"
+#include "names/common.h"
 #include "primitives/transaction.h"
 #include "wallet/db.h"
 #include "key.h"
@@ -215,6 +216,7 @@ public:
 
     bool WriteNameFirstUpdate(const std::string& name, const std::string& data);
     bool EraseNameFirstUpdate(const std::string& name);
+    MapNameNewReturn pendingNameFirstUpdate;
 
     DBErrors LoadWallet(CWallet* pwallet);
     DBErrors FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CWalletTx>& vWtx);

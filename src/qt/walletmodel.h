@@ -229,6 +229,12 @@ public:
     // Requires unlocked wallet; can throw exception instead of returning error
     QString nameUpdate(const QString &name, const QString &data, const QString &transferToAddress);
 
+    // pending status wallet operations
+    MapNameNewReturn pendingNameFirstUpdates();
+    bool pendingNameFirstUpdateExists(const QString &name);
+    bool writePendingNameFirstUpdate(const QString &name, UniValue nameNewJson, NameNewReturn nameNewData);
+    bool erasePendingNameFirstUpdate(const QString &name);
+
     bool transactionCanBeBumped(uint256 hash) const;
     bool bumpFee(uint256 hash);
 

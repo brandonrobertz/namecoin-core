@@ -1056,13 +1056,15 @@ QString WalletModel::nameUpdate(const QString &name, const QString &data, const 
     params.push_back (Pair("name", strName));
     params.push_back (Pair("value", strData));
 
+    jsonRequest.strMethod = "name_update";
     jsonRequest.params = params;
+    jsonRequest.fHelp = false;
 
     if (strTransferToAddress != "")
         params.push_back (Pair("toaddress", strTransferToAddress));
 
     try {
-        res = name_update (jsonRequest);
+        res = tableRPC.execute(jsonRequest);
     }
     catch (const UniValue& e) {
         UniValue message = find_value( e, "message");
@@ -1072,3 +1074,39 @@ QString WalletModel::nameUpdate(const QString &name, const QString &data, const 
     }
     return tr ("");
 }
+
+MapNameNewReturn WalletModel::pendingNameFirstUpdates()
+{
+    return CWalletDB(wallet->GetDBHandle()).pendingNameFirstUpdate;
+}
+
+bool WalletModel::pendingNameFirstUpdateExists(const QString &name)
+{
+    std::string strName = name.toStdString();
+    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdates();
+    return pendingNameFirstUpdate.end() != pendingNameFirstUpdate.find(strName);
+}
+
+bool WalletModel::writePendingNameFirstUpdate(const QString &name, UniValue nameNewJson, NameNewReturn nameNewData)
+{
+    std::string strName = name.toStdString();
+    std::string jsonData = nameNewJson.write();
+    // TODO: abstract this to wallet, pending map should be read only
+    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdates();
+    pendingNameFirstUpdate[strName] = nameNewData;
+    return CWalletDB(wallet->GetDBHandle()).WriteNameFirstUpdate(strName, jsonData);
+}
+
+bool WalletModel::erasePendingNameFirstUpdate(const QString &name)
+{
+    std::string strName = name.toStdString();
+    // TODO: abstract this away to walletdb
+    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdates();
+    if(pendingNameFirstUpdateExists(name))
+    {
+        MapNameNewReturn::iterator i = pendingNameFirstUpdate.find(strName);
+        pendingNameFirstUpdate.erase(i);
+    }
+    return CWalletDB(wallet->GetDBHandle()).EraseNameFirstUpdate(strName);
+}
+

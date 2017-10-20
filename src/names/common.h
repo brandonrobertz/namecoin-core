@@ -481,7 +481,7 @@ public:
 
 /* This is where we store the the result of name_new, once initiated
    by users of the UI (currently ui-only). We store these as strings
-   so that we can create a UniValue JSON object and send to RPC 
+   so that we can create a UniValue JSON object and send to RPC
    name_firstupdate. This also gets written to the wallet as a
    JSON string and loaded back as such. */
 struct NameNewReturn
@@ -496,6 +496,7 @@ struct NameNewReturn
 
 /* Here is where we store our pending name_firstupdates (see above)
    while we're waiting for name_new to confirm. */
-extern std::map<std::string, NameNewReturn > pendingNameFirstUpdate;
+typedef std::map<std::string, NameNewReturn> MapNameNewReturn;
+extern MapNameNewReturn pendingNameFirstUpdate;
 
 #endif // H_BITCOIN_NAMES_COMMON

@@ -117,11 +117,6 @@ void ConfigureNameDialog::accept()
     QDialog::accept();
 }
 
-void ConfigureNameDialog::reject()
-{
-    QDialog::reject();
-}
-
 void ConfigureNameDialog::setModel(WalletModel *walletModel)
 {
     this->walletModel = walletModel;

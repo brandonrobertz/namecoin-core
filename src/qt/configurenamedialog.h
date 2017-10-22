@@ -29,7 +29,6 @@ public:
 
 public Q_SLOTS:
     void accept();
-    void reject();
     void on_addressBookButton_clicked();
     void on_pasteButton_clicked();
 

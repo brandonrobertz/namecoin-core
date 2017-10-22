@@ -229,13 +229,6 @@ public:
     // Requires unlocked wallet; can throw exception instead of returning error
     QString nameUpdate(const QString &name, const QString &data, const QString &transferToAddress);
 
-    // pending status wallet operations
-    MapNameNewReturn pendingNameFirstUpdates();
-    bool pendingNameFirstUpdateExists(const QString &name);
-    bool writePendingNameFirstUpdate(const QString &name, UniValue nameNewJson, NameNewReturn nameNewData);
-    bool erasePendingNameFirstUpdate(const QString &name);
-    NameNewReturn readPendingNameFirstUpdate(const QString &name);
-
     bool transactionCanBeBumped(uint256 hash) const;
     bool bumpFee(uint256 hash);
 
@@ -246,6 +239,10 @@ public:
     int getDefaultConfirmTarget() const;
 
     bool getDefaultWalletRbf() const;
+
+    bool writePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress);
+    bool pendingNameFirstUpdateExists(std::string &name);
+    NameNewReturn getPendingNameFirstUpdate(std::string &name);
 
 private:
     CWallet *wallet;
@@ -313,10 +310,6 @@ public Q_SLOTS:
     void updateWatchOnlyFlag(bool fHaveWatchonly);
     /* Current, immature or unconfirmed balance might have changed - emit 'balanceChanged' if so */
     void pollBalanceChanged();
-
-    bool writePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress);
-    bool pendingNameFirstUpdateExists(std::string &name);
-
 };
 
 #endif // BITCOIN_QT_WALLETMODEL_H

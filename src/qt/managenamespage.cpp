@@ -1,21 +1,22 @@
 #include "managenamespage.h"
 #include "ui_managenamespage.h"
 
-#include "nametablemodel.h"
+#include "base58.h"
+#include "configurenamedialog.h"
 #include "csvmodelwriter.h"
 #include "guiutil.h"
-#include "base58.h"
-#include "ui_interface.h"
-#include "configurenamedialog.h"
+#include "names/common.h"
+#include "nametablemodel.h"
 #include "platformstyle.h"
+#include "ui_interface.h"
 #include "util.h"
 #include "validation.h" // cs_main
 #include "wallet/wallet.h"
 #include "walletmodel.h"
 
-#include <QSortFilterProxyModel>
 #include <QMessageBox>
 #include <QMenu>
+#include <QSortFilterProxyModel>
 
 ManageNamesPage::ManageNamesPage(const PlatformStyle *platformStyle, QWidget *parent) :
     QWidget(parent),
@@ -149,7 +150,7 @@ void ManageNamesPage::on_submitNameButton_clicked()
             dlg.setModel(walletModel);
 
             std::cout << "Launching dlg!\n";
-            dlg.exec(); // == QDialog::Accepted)
+            dlg.exec();
             QString data = dlg.getReturnData();
 
             std::string strData = data.toStdString();
@@ -248,14 +249,26 @@ void ManageNamesPage::on_configureNameButton_clicked()
 
 
     bool fFirstUpdate = walletModel->pendingNameFirstUpdateExists(strName);
+    std::cout << "fFirstUpdate " << fFirstUpdate << '\n';
 
     ConfigureNameDialog dlg(platformStyle, name, value, fFirstUpdate, this);
     dlg.setModel(walletModel);
     if (dlg.exec() == QDialog::Accepted && fFirstUpdate)
     {
+        // UPDATE
+        QString data = dlg.getReturnData();
+        std::cout << "getting return data\n";
+        std::string strData = data.toStdString();
+        std::cout << "getting pending name firstupdate\n";
+        NameNewReturn res =  walletModel->getPendingNameFirstUpdate(strName);
+        std::cout << "writing pending name firstupdate\n";
+        walletModel->writePendingNameFirstUpdate(strName, res.rand, res.hex, strData, res.toaddress);
+        LogPrintf("configure:change updateing pending name_firstupdate name=%s rand=%s tx=%s value=%s\n",
+                strName.c_str(), res.rand.c_str(), res.hex.c_str(), strData.c_str());
+
         // name_firstupdate could have been sent, while the user was editing the value
-        if (walletModel->pendingNameFirstUpdateExists(strName))
-            model->updateEntry(name, dlg.getReturnData(), NameTableEntry::NAME_NEW, CT_UPDATED);
+        std::cout << "updating entry\n";
+        model->updateEntry(name, dlg.getReturnData(), NameTableEntry::NAME_NEW, CT_UPDATED);
     }
 }
 

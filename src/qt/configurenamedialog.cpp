@@ -5,8 +5,8 @@
 #include "guiutil.h"
 #include "names/main.h"
 #include "platformstyle.h"
-#include "walletmodel.h"
 #include "wallet/wallet.h"
+#include "walletmodel.h"
 
 #include <QMessageBox>
 #include <QClipboard>

@@ -1091,3 +1091,8 @@ bool WalletModel::pendingNameFirstUpdateExists(std::string &name)
     return wallet->PendingNameFirstUpdateExists(name);
 }
 
+NameNewReturn WalletModel::getPendingNameFirstUpdate(std::string &name)
+{
+    return wallet->GetPendingNameFirstUpdate(name);
+}
+

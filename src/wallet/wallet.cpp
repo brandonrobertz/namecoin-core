@@ -4101,7 +4101,6 @@ bool CWallet::BackupWallet(const std::string& strDest)
 bool CWallet::PendingNameFirstUpdateExists(std::string &name)
 {
     LOCK(cs_wallet);
-    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdate;
     return pendingNameFirstUpdate.end() != pendingNameFirstUpdate.find(name);
 }
 
@@ -4144,8 +4143,8 @@ bool CWallet::ErasePendingNameFirstUpdate(std::string &name)
 NameNewReturn CWallet::GetPendingNameFirstUpdate(std::string &name)
 {
     LOCK(cs_wallet);
-    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdate;
-    MapNameNewReturn::iterator it = pendingNameFirstUpdate.find(name);
+    MapNameNewReturn pn = pendingNameFirstUpdate;
+    MapNameNewReturn::iterator it = pn.find(name);
     return it->second;
 }
 

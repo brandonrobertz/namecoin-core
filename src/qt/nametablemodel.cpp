@@ -18,9 +18,6 @@
 #include <QTimer>
 #include <QObject>
 
-// in wallet/rpcwallet.cpp
-extern UniValue name_list(const JSONRPCRequest& request);
-
 // ExpiresIn column is right-aligned as it contains numbers
 static int column_alignments[] = {
         Qt::AlignLeft|Qt::AlignVCenter,     // Name
@@ -76,22 +73,45 @@ public:
         cachedNameTable.clear();
         std::map< std::string, NameTableEntry > vNamesO;
 
-        JSONRPCRequest jsonRequest;
-        jsonRequest.params = NullUniValue;
-        UniValue names;
+        // confirmed names
+        JSONRPCRequest nameListRequest;
+        nameListRequest.strMethod = "name_list";
+        nameListRequest.params = NullUniValue;
+        nameListRequest.fHelp = false;
+        UniValue confirmedNames;
+
         try {
-            names = name_list(jsonRequest).get_array();
+            confirmedNames = tableRPC.execute(nameListRequest).get_array();
         } catch (const UniValue& e) {
             LogPrintf ("name_list lookup error: %s\n", e.getValStr().c_str());
         }
 
-        // pull all our names from wallet
-        for (unsigned int idx = 0; idx < names.size(); idx++) {
-            const UniValue& v = names[idx];
+        for (unsigned int idx = 0; idx < confirmedNames.size(); idx++) {
+            const UniValue& v = confirmedNames[idx];
             std::string name = find_value ( v, "name").get_str();
             std::string data = find_value ( v, "value").get_str();
             int height = find_value ( v, "height").get_int();
             vNamesO[name] = NameTableEntry(name, data, height);
+        }
+
+        // pending names
+        JSONRPCRequest namePendingRequest;
+        namePendingRequest.strMethod = "name_pending";
+        namePendingRequest.params = NullUniValue;
+        namePendingRequest.fHelp = false;
+        UniValue pendingNames;
+
+        try {
+            pendingNames = tableRPC.execute(namePendingRequest).get_array();
+        } catch (const UniValue& e) {
+            LogPrintf ("name_pending lookup error: %s\n", e.getValStr().c_str());
+        }
+
+        for (unsigned int idx = 0; idx < pendingNames.size(); idx++) {
+            const UniValue& v = pendingNames[idx];
+            std::string name = find_value ( v, "name").get_str();
+            std::string data = find_value ( v, "value").get_str();
+            vNamesO[name] = NameTableEntry(name, data, NameTableEntry::NAME_NEW);
         }
 
         // Add existing names
@@ -99,7 +119,6 @@ public:
             cachedNameTable.append(item.second);
 
         // Add pending names (name_new)
-        LOCK(wallet->cs_wallet);
         for(std::pair<std::string, NameNewReturn> item : wallet->pendingNameFirstUpdate)
             cachedNameTable.append(
                 NameTableEntry(item.first,

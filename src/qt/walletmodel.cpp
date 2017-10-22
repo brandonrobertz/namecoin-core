@@ -136,12 +136,6 @@ void WalletModel::pollBalanceChanged()
     TRY_LOCK(cs_main, lockMain);
     if(!lockMain)
         return;
-    // TRY_LOCK(wallet->cs_wallet, lockWallet);
-    // if(!lockWallet)
-    // {
-    //     std::cout << "!!!wallet already locked!\n";
-    //     return;
-    // }
 
     if(fForceCheckBalanceChanged || chainActive.Height() != cachedNumBlocks)
     {

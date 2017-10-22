@@ -137,9 +137,7 @@ public:
 
         LOCK(cs_main);
 
-        NameTableEntry nameObj(ValtypeToString(inName),
-                               std::string(""),
-                               NameTableEntry::NAME_NON_EXISTING);
+        NameTableEntry nameObj(ValtypeToString(inName), "", NameTableEntry::NAME_NON_EXISTING);
 
         CNameData data;
         {
@@ -191,9 +189,7 @@ public:
         }
     }
 
-    void
-    updateEntry(const QString &name, const QString &value,
-                int nHeight, int status, int *outNewRowIndex = NULL)
+    void updateEntry(const QString &name, const QString &value, int nHeight, int status, int *outNewRowIndex = nullptr)
     {
         // Find name in model
         QList<NameTableEntry>::iterator lower = qLowerBound(
@@ -263,7 +259,7 @@ public:
         }
         else
         {
-            return NULL;
+            return nullptr;
         }
     }
 };

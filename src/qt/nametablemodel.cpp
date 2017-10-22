@@ -99,7 +99,8 @@ public:
             cachedNameTable.append(item.second);
 
         // Add pending names (name_new)
-        for(std::pair<std::string, NameNewReturn> item : pendingNameFirstUpdate)
+        LOCK(wallet->cs_wallet);
+        for(std::pair<std::string, NameNewReturn> item : wallet->pendingNameFirstUpdate)
             cachedNameTable.append(
                 NameTableEntry(item.first,
                                item.second.data,

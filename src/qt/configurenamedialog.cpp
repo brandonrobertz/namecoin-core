@@ -90,27 +90,29 @@ void ConfigureNameDialog::accept()
         return;
 
     returnData = ui->dataEdit->text();
-    QString err_msg;
-    try
-    {
-        if (firstUpdate)
-            err_msg = walletModel->nameFirstUpdatePrepare(name, returnData);
-        else
-            err_msg = walletModel->nameUpdate(name, returnData, addr);
-    }
-    catch (std::exception& e)
-    {
-        err_msg = e.what();
-    }
+    //QString err_msg;
+    // try
+    // {
+    //     if (firstUpdate) {
+    //         std::cout << "calling walletModel->nameFirstUpdatePrepare " << returnData.toStdString() << '\n';
+    //         err_msg = walletModel->nameFirstUpdatePrepare(name, returnData);
+    //     }
+    //     else
+    //         err_msg = walletModel->nameUpdate(name, returnData, addr);
+    // }
+    // catch (std::exception& e)
+    // {
+    //     err_msg = e.what();
+    // }
 
-    if (!err_msg.isEmpty())
-    {
-        if (err_msg == "ABORTED")
-            return;
+    // if (!err_msg.isEmpty())
+    // {
+    //     if (err_msg == "ABORTED")
+    //         return;
 
-        QMessageBox::critical(this, tr("Name update error"), err_msg);
-        return;
-    }
+    //     QMessageBox::critical(this, tr("Name update error"), err_msg);
+    //     return;
+    // }
 
     QDialog::accept();
 }

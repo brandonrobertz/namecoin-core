@@ -6,8 +6,6 @@
 
 #include "script/names.h"
 
-std::map<std::string, NameNewReturn > pendingNameFirstUpdate;
-
 bool fNameHistory = false;
 
 /* ************************************************************************** */

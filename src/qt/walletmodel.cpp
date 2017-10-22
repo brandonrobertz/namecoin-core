@@ -136,9 +136,12 @@ void WalletModel::pollBalanceChanged()
     TRY_LOCK(cs_main, lockMain);
     if(!lockMain)
         return;
-    TRY_LOCK(wallet->cs_wallet, lockWallet);
-    if(!lockWallet)
-        return;
+    // TRY_LOCK(wallet->cs_wallet, lockWallet);
+    // if(!lockWallet)
+    // {
+    //     std::cout << "!!!wallet already locked!\n";
+    //     return;
+    // }
 
     if(fForceCheckBalanceChanged || chainActive.Height() != cachedNumBlocks)
     {
@@ -151,7 +154,11 @@ void WalletModel::pollBalanceChanged()
         if(transactionTableModel)
             transactionTableModel->updateConfirmations();
 
-        sendPendingNameFirstUpdates();
+        std::vector<std::string> successfulNames = sendPendingNameFirstUpdates();
+        std::cout << "Successful names " << successfulNames.size() << '\n';
+        for(std::string name : successfulNames)
+            wallet->ErasePendingNameFirstUpdate(name);
+
     }
 }
 
@@ -808,6 +815,8 @@ bool WalletModel::nameAvailable(const QString &name)
 
 NameNewReturn WalletModel::nameNew(const QString &name)
 {
+    std::cout << "WalletModel::nameNew\n";
+
     std::string strName = name.toStdString ();
     std::string data;
 
@@ -818,14 +827,15 @@ NameNewReturn WalletModel::nameNew(const QString &name)
 
     NameNewReturn retval;
 
-    params.push_back (Pair("name", strName));
+    params.push_back(Pair("name", strName));
 
     jsonRequest.strMethod = std::string("name_new");
     jsonRequest.params = params;
     jsonRequest.fHelp = false;
 
     try {
-        res = name_new (jsonRequest);
+        std::cout << "name_new\n";
+        res = name_new(jsonRequest);
     } catch (const UniValue& e) {
         UniValue message = find_value( e, "message");
         std::string errorStr = message.get_str();
@@ -837,14 +847,14 @@ NameNewReturn WalletModel::nameNew(const QString &name)
 
     retval.ok = true;
 
-    values = res.getValues ();
+    values = res.getValues();
     txid = values[0];
     rand = values[1];
 
     // txid
-    retval.hex = txid.get_str ();
+    retval.hex = txid.get_str();
     // rand
-    retval.rand = rand.get_str ();
+    retval.rand = rand.get_str();
 
     return retval;
 }
@@ -852,51 +862,43 @@ NameNewReturn WalletModel::nameNew(const QString &name)
 // this gets called from configure names dialog after name_new succeeds
 QString WalletModel::nameFirstUpdatePrepare(const QString& name, const QString& data)
 {
-    if (data.isEmpty())
-        return tr("Data cannot be blank.");
-
-    const std::string strName = name.toStdString ();
-    const std::string strData = data.toStdString();
-    NameNewReturn updatedNameNewReturn;
-
-    // we need to write out everything in NameNewReturn to the wallet, essentially
-    // that's where wallet->WriteNameFirstUpdate comes in
-    // it gets loaded at wallet start, and as long as we keep it updated as
-    // things happen, we should be able to rely on it
-
-    LOCK(cs_main);
-    // pendingNameFirstUpdate is set by the time we get here inside managenamespage.cpp:134
-    std::map<std::string, NameNewReturn>::iterator it = pendingNameFirstUpdate.find(strName);
-
-    if (it == pendingNameFirstUpdate.end())
-        return tr("Cannot find stored name_new data for name");
-
-    const std::string txid = it->second.hex;
-    const std::string rand = it->second.rand;
-    const std::string toaddress = it->second.toaddress;
-
-    updatedNameNewReturn.ok = true;
-    updatedNameNewReturn.hex = txid;
-    updatedNameNewReturn.rand = rand;
-    updatedNameNewReturn.data = strData;
-    if(!toaddress.empty ())
-        updatedNameNewReturn.toaddress = toaddress;
-
-    it->second = updatedNameNewReturn;
-
-    UniValue uniNameUpdateData(UniValue::VOBJ);
-    uniNameUpdateData.pushKV ("txid", txid);
-    uniNameUpdateData.pushKV ("rand", rand);
-    uniNameUpdateData.pushKV ("data", strData);
-    if(!toaddress.empty ())
-        uniNameUpdateData.pushKV ("toaddress", toaddress);
-
-    std::string jsonData = uniNameUpdateData.write();
-    LogPrintf ("Writing pending name_firstupdate %s => %s\n", strName.c_str(), jsonData.c_str());
-
-    CWalletDBWrapper& dbw = wallet->GetDBHandle();
-    CWalletDB(dbw).WriteNameFirstUpdate(strName, jsonData);
-
+//    std::cout << "WalletModel::nameFirstUpdatePrepare\n";
+//
+//    if (data.isEmpty())
+//        return tr("Data cannot be blank.");
+//
+//    const std::string strName = name.toStdString();
+//    const std::string strData = data.toStdString();
+//    NameNewReturn updatedNameNewReturn;
+//
+//    std::cout << "performing check\n";
+//    if (!this->pendingNameFirstUpdateExists(name))
+//        return tr("Cannot find stored name_new data for name");
+//
+//    NameNewReturn stored = this->readPendingNameFirstUpdate(name);
+//    const std::string txid = stored.hex;
+//    const std::string rand = stored.rand;
+//    const std::string toaddress = stored.toaddress;
+//
+//    updatedNameNewReturn.ok = true;
+//    updatedNameNewReturn.hex = txid;
+//    updatedNameNewReturn.rand = rand;
+//    updatedNameNewReturn.data = strData;
+//    if(!toaddress.empty ())
+//        updatedNameNewReturn.toaddress = toaddress;
+//
+//    UniValue uniNameUpdateData(UniValue::VOBJ);
+//    uniNameUpdateData.pushKV ("txid", txid);
+//    uniNameUpdateData.pushKV ("rand", rand);
+//    uniNameUpdateData.pushKV ("data", strData);
+//    if(!toaddress.empty ())
+//        uniNameUpdateData.pushKV ("toaddress", toaddress);
+//
+//    std::string jsonData = uniNameUpdateData.write();
+//    LogPrintf ("Writing pending name_firstupdate %s => %s\n", strName.c_str(), jsonData.c_str());
+//
+//    //this->writePendingNameFirstUpdate(name, uniNameUpdateData, updatedNameNewReturn);
+//
     return tr("");
 }
 
@@ -906,6 +908,8 @@ std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::
     UniValue params(UniValue::VOBJ);
     UniValue res;
     std::string errorStr;
+
+    std::cout << "VALUE " << data << '\n';
 
     params.push_back (Pair("name", name));
     params.push_back (Pair("rand", rand));
@@ -929,14 +933,22 @@ std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::
         errorStr = message.get_str();
         LogPrintf ("name_firstupdate error: %s\n", errorStr.c_str());
     }
+
     return errorStr;
 }
 
-void WalletModel::sendPendingNameFirstUpdates()
+std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
 {
-    for (std::map<std::string, NameNewReturn>::iterator i = pendingNameFirstUpdate.begin();
-         i != pendingNameFirstUpdate.end(); )
+    std::cout << "Iterating\n";
+    std::vector<std::string> successfulNames;
+
+    LOCK(wallet->cs_wallet);
+    MapNameNewReturn pendingNameFirstUpdate = wallet->pendingNameFirstUpdate;
+    for (MapNameNewReturn::iterator i = pendingNameFirstUpdate.begin();
+         i != pendingNameFirstUpdate.end(); i++)
     {
+        LogPrintf("I=%i\n",  std::distance( pendingNameFirstUpdate.begin(), i));
+
         JSONRPCRequest jsonRequest;
         UniValue params1(UniValue::VOBJ);
         UniValue res1, val;
@@ -945,11 +957,15 @@ void WalletModel::sendPendingNameFirstUpdates()
         // this will drive the error-handling popup
         std::string completedResult;
 
+
         std::string name = i->first;
         std::string txid = i->second.hex;
         std::string rand = i->second.rand;
         std::string data = i->second.data;
         std::string toaddress = i->second.toaddress;
+
+        std::cout << "***** NAME " << name << '\n';
+        std::cout << "***** DATA " << data << '\n';
 
         params1.push_back (Pair("txid", txid));
         jsonRequest.params = params1;
@@ -963,7 +979,6 @@ void WalletModel::sendPendingNameFirstUpdates()
             std::string errorStr = message.get_str();
             LogPrintf ("gettransaction error for name %s: %s\n",
                        name.c_str(), errorStr.c_str());
-            ++i;
             continue;
         }
 
@@ -971,7 +986,6 @@ void WalletModel::sendPendingNameFirstUpdates()
         if (!val.isNum ())
         {
             LogPrintf ("No confirmations for name %s\n", name.c_str());
-            ++i;
             continue;
         }
 
@@ -980,7 +994,6 @@ void WalletModel::sendPendingNameFirstUpdates()
 
         if ( confirms < 12)
         {
-            ++i;
             continue;
         }
 
@@ -993,14 +1006,14 @@ void WalletModel::sendPendingNameFirstUpdates()
                   QMessageBox::Cancel))
             {
                 LogPrintf ("User cancelled wallet unlock pre-name_firstupdate. Waiting 1 block.\n");
-                return;
+                return successfulNames;
             }
 
             LogPrintf ("Attempting wallet unlock ...\n");
             WalletModel::UnlockContext ctx(this->requestUnlock ());
             if (!ctx.isValid ())
             {
-                return;
+                return successfulNames;
             }
             else
             {
@@ -1018,6 +1031,7 @@ void WalletModel::sendPendingNameFirstUpdates()
         // if we got an error on name_firstupdate. prompt user for what to do
         if(!completedResult.empty())
         {
+            std::cout << "NOT EMPTY error response\n";
             QString errorMsg = tr("Namecoin Core has encountered an error while attempting to complete your name registration for name <b>%1</b>. The name_firstupdate operation caused the following error to occurr:<br><br>%2<br><br>Would you like to cancel the pending name registration?")
                 .arg(QString::fromStdString(name))
                 .arg(QString::fromStdString(completedResult));
@@ -1028,17 +1042,15 @@ void WalletModel::sendPendingNameFirstUpdates()
                                                           QMessageBox::Yes|QMessageBox::No,
                                                           QMessageBox::No))
             {
-                ++i;
+                // NOTE: removing this fixes the current bug, could be a lock issue though
                 continue;
             }
         }
 
-        pendingNameFirstUpdate.erase(i++);
-
-        CWalletDBWrapper& dbw = wallet->GetDBHandle();
-        CWalletDB(dbw).EraseNameFirstUpdate(name);
+        successfulNames.push_back(name);
         nameTableModel->updateEntry(QString::fromStdString(name), QString::fromStdString(data), chainActive.Height() + 1, CT_UPDATED);
     }
+    return successfulNames;
 }
 
 QString WalletModel::nameUpdate(const QString &name, const QString &data, const QString &transferToAddress)
@@ -1075,38 +1087,13 @@ QString WalletModel::nameUpdate(const QString &name, const QString &data, const 
     return tr ("");
 }
 
-MapNameNewReturn WalletModel::pendingNameFirstUpdates()
+bool WalletModel::writePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress)
 {
-    return CWalletDB(wallet->GetDBHandle()).pendingNameFirstUpdate;
+    return wallet->WritePendingNameFirstUpdate(name, rand, txid, data, toaddress);
 }
 
-bool WalletModel::pendingNameFirstUpdateExists(const QString &name)
+bool WalletModel::pendingNameFirstUpdateExists(std::string &name)
 {
-    std::string strName = name.toStdString();
-    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdates();
-    return pendingNameFirstUpdate.end() != pendingNameFirstUpdate.find(strName);
-}
-
-bool WalletModel::writePendingNameFirstUpdate(const QString &name, UniValue nameNewJson, NameNewReturn nameNewData)
-{
-    std::string strName = name.toStdString();
-    std::string jsonData = nameNewJson.write();
-    // TODO: abstract this to wallet, pending map should be read only
-    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdates();
-    pendingNameFirstUpdate[strName] = nameNewData;
-    return CWalletDB(wallet->GetDBHandle()).WriteNameFirstUpdate(strName, jsonData);
-}
-
-bool WalletModel::erasePendingNameFirstUpdate(const QString &name)
-{
-    std::string strName = name.toStdString();
-    // TODO: abstract this away to walletdb
-    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdates();
-    if(pendingNameFirstUpdateExists(name))
-    {
-        MapNameNewReturn::iterator i = pendingNameFirstUpdate.find(strName);
-        pendingNameFirstUpdate.erase(i);
-    }
-    return CWalletDB(wallet->GetDBHandle()).EraseNameFirstUpdate(strName);
+    return wallet->PendingNameFirstUpdateExists(name);
 }
 

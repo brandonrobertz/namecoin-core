@@ -1,17 +1,17 @@
 #include "managenamespage.h"
 #include "ui_managenamespage.h"
 
-#include "walletmodel.h"
 #include "nametablemodel.h"
 #include "csvmodelwriter.h"
 #include "guiutil.h"
 #include "base58.h"
-#include "wallet/wallet.h"
 #include "ui_interface.h"
 #include "configurenamedialog.h"
 #include "platformstyle.h"
 #include "util.h"
 #include "validation.h" // cs_main
+#include "wallet/wallet.h"
+#include "walletmodel.h"
 
 #include <QSortFilterProxyModel>
 #include <QMessageBox>
@@ -109,13 +109,9 @@ void ManageNamesPage::on_submitNameButton_clicked()
 
     QString msg;
     if (name.startsWith("d/"))
-        msg = tr("Are you sure you want to register domain name %1, which "
-            "corresponds to domain %2? <br><br> NOTE: If your wallet is locked, you will be prompted "
-            "to unlock it in 12 blocks.").arg(name).arg(name.mid(2) + ".bit");
+        msg = tr("Are you sure you want to register domain name %1, which corresponds to domain %2? <br><br> NOTE: If your wallet is locked, you will be prompted to unlock it in 12 blocks.").arg(name).arg(name.mid(2) + ".bit");
     else
-        msg = tr("Are you sure you want to register non-domain name %1? <br><br>"
-            "NOTE: If your wallet is locked, you will be prompted "
-            "to unlock it in 12 blocks.").arg(name);
+        msg = tr("Are you sure you want to register non-domain name %1? <br><br>NOTE: If your wallet is locked, you will be prompted to unlock it in 12 blocks.").arg(name);
 
     if (QMessageBox::Yes != QMessageBox::question(this, tr("Confirm name registration"),
           msg,
@@ -138,9 +134,7 @@ void ManageNamesPage::on_submitNameButton_clicked()
 
         if (res.ok)
         {
-            // save pending name firstupdate data ... this gets
-            // picked up after the config name dialog is accepted
-            pendingNameFirstUpdate[strName] = res;
+            std::cout << "NameNewReturn OK!\n";
 
             // reset UI text
             ui->registerName->setText("d/");
@@ -149,26 +143,30 @@ void ManageNamesPage::on_submitNameButton_clicked()
             int newRowIndex;
             // FIXME: CT_NEW may have been sent from nameNew (via transaction).
             // Currently updateEntry is modified so it does not complain
-            model->updateEntry(name, "", NameTableEntry::NAME_NEW, CT_NEW, &newRowIndex);
-            ui->tableView->selectRow(newRowIndex);
-            ui->tableView->setFocus();
+            //model->updateEntry(name, "", NameTableEntry::NAME_NEW, CT_NEW, &newRowIndex);
 
             ConfigureNameDialog dlg(platformStyle, name, "", true, this);
             dlg.setModel(walletModel);
 
-            if (dlg.exec() == QDialog::Accepted)
-            {
-                LOCK(cs_main);
-                if (pendingNameFirstUpdate.count(strName) != 0)
-                {
-                    model->updateEntry(name, dlg.getReturnData(), NameTableEntry::NAME_NEW, CT_UPDATED);
-                }
-                else
-                {
-                    // name_firstupdate could have been sent, while the user was editing the value
-                    // Do nothing
-                }
-            }
+            std::cout << "Launching dlg!\n";
+            dlg.exec(); // == QDialog::Accepted)
+            QString data = dlg.getReturnData();
+
+            std::string strData = data.toStdString();
+
+            UniValue jsonData(UniValue::VOBJ);
+            jsonData.pushKV ("txid", res.hex);
+            jsonData.pushKV ("rand", res.rand);
+            jsonData.pushKV ("data", strData);
+            if(!res.toaddress.empty ())
+                jsonData.pushKV ("toaddress", res.toaddress);
+
+            walletModel->writePendingNameFirstUpdate(strName, res.rand, res.hex, strData, res.toaddress);
+
+            model->updateEntry(name, dlg.getReturnData(), NameTableEntry::NAME_NEW, CT_NEW, &newRowIndex);
+
+            ui->tableView->selectRow(newRowIndex);
+            ui->tableView->setFocus();
 
             return;
         }
@@ -248,15 +246,15 @@ void ManageNamesPage::on_configureNameButton_clicked()
     std::string strName = name.toStdString();
     QString value = index.sibling(index.row(), NameTableModel::Value).data(Qt::EditRole).toString();
 
-    bool fFirstUpdate = pendingNameFirstUpdate.count(strName) != 0;
+
+    bool fFirstUpdate = walletModel->pendingNameFirstUpdateExists(strName);
 
     ConfigureNameDialog dlg(platformStyle, name, value, fFirstUpdate, this);
     dlg.setModel(walletModel);
     if (dlg.exec() == QDialog::Accepted && fFirstUpdate)
     {
-        LOCK(cs_main);
         // name_firstupdate could have been sent, while the user was editing the value
-        if (pendingNameFirstUpdate.count(strName) != 0)
+        if (walletModel->pendingNameFirstUpdateExists(strName))
             model->updateEntry(name, dlg.getReturnData(), NameTableEntry::NAME_NEW, CT_UPDATED);
     }
 }

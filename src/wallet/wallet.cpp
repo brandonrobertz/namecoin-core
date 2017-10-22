@@ -4098,6 +4098,57 @@ bool CWallet::BackupWallet(const std::string& strDest)
     return dbw->Backup(strDest);
 }
 
+bool CWallet::PendingNameFirstUpdateExists(std::string &name)
+{
+    LOCK(cs_wallet);
+    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdate;
+    return pendingNameFirstUpdate.end() != pendingNameFirstUpdate.find(name);
+}
+
+bool CWallet::WritePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress)
+{
+    std::cout << "writePendingNameFirstUpdate " << name << ' ' << data << '\n';
+    LOCK(cs_wallet);
+
+    UniValue jsonData(UniValue::VOBJ);
+    jsonData.pushKV ("txid", txid);
+    jsonData.pushKV ("rand", rand);
+    jsonData.pushKV ("data", data);
+    if(!toaddress.empty ())
+        jsonData.pushKV ("toaddress", toaddress);
+    std::string jsonStrData = jsonData.write();
+
+    NameNewReturn newReturn;
+    newReturn.ok = true;
+    newReturn.hex = txid;
+    newReturn.rand = rand;
+    newReturn.data = data;
+    newReturn.toaddress = toaddress;
+
+    pendingNameFirstUpdate[name] = newReturn;
+    return CWalletDB(*dbw).WriteNameFirstUpdate(name, jsonStrData);
+}
+
+bool CWallet::ErasePendingNameFirstUpdate(std::string &name)
+{
+    std::cout << "erasePendingNameFirstUpdate " << name << '\n';
+    LOCK(cs_wallet);
+    //MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdate;
+    //MapNameNewReturn::iterator i = pendingNameFirstUpdate.find(name);
+    //if(i == pendingNameFirstUpdate.end())
+    //    std::cout << "NAME DOES NOT EXIST " << name << '\n';
+    pendingNameFirstUpdate.erase(name);
+    return CWalletDB(*dbw).EraseNameFirstUpdate(name);
+}
+
+NameNewReturn CWallet::GetPendingNameFirstUpdate(std::string &name)
+{
+    LOCK(cs_wallet);
+    MapNameNewReturn pendingNameFirstUpdate = pendingNameFirstUpdate;
+    MapNameNewReturn::iterator it = pendingNameFirstUpdate.find(name);
+    return it->second;
+}
+
 CKeyPool::CKeyPool()
 {
     nTime = GetTime();

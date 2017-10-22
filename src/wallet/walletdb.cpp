@@ -507,7 +507,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ret.rand = rand;
             ret.data = pendingData;
 
-            pendingNameFirstUpdate[strName] = ret;
+            pwallet->pendingNameFirstUpdate[strName] = ret;
             LogPrintf("Loaded pending name_firstupdate %s => %s\n", strName, strJsonData);
         }
         else if (strType == "version")

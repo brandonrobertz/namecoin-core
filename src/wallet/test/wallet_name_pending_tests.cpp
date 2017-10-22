@@ -38,6 +38,8 @@ BOOST_AUTO_TEST_CASE(wallet_name_pending_tests)
     // and some bad data to ensure we dont segfault
     std::string badData = "flksjf984j*#)(QUFD039kjdc0e9wjf8{})";
 
+    MapNameNewReturn pendingNameFirstUpdate = pwalletMain->pendingNameFirstUpdate;
+
     // ensure pending names is blank to start
     BOOST_CHECK(pendingNameFirstUpdate.size() == 0);
 

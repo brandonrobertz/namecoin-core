@@ -497,6 +497,5 @@ struct NameNewReturn
 /* Here is where we store our pending name_firstupdates (see above)
    while we're waiting for name_new to confirm. */
 typedef std::map<std::string, NameNewReturn> MapNameNewReturn;
-extern MapNameNewReturn pendingNameFirstUpdate;
 
 #endif // H_BITCOIN_NAMES_COMMON

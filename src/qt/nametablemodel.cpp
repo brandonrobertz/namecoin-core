@@ -83,13 +83,14 @@ public:
         UniValue confirmedNames;
 
         try {
-            confirmedNames = tableRPC.execute(nameListRequest).get_array();
+            confirmedNames = tableRPC.execute(nameListRequest);
         } catch (const UniValue& e) {
             LogPrintf ("name_list lookup error: %s\n", e.getValStr().c_str());
         }
 
-        for (unsigned int idx = 0; idx < confirmedNames.size(); idx++) {
-            const UniValue& v = confirmedNames[idx];
+        for (const auto& v : confirmedNames.getValues())
+        {
+            //const UniValue& v = confirmedNames[idx];
             std::string name = find_value ( v, "name").get_str();
             std::string data = find_value ( v, "value").get_str();
             int height = find_value ( v, "height").get_int();
@@ -104,24 +105,24 @@ public:
         UniValue pendingNames;
 
         try {
-            pendingNames = tableRPC.execute(namePendingRequest).get_array();
+            pendingNames = tableRPC.execute(namePendingRequest);
         } catch (const UniValue& e) {
             LogPrintf ("name_pending lookup error: %s\n", e.getValStr().c_str());
         }
 
-        for (unsigned int idx = 0; idx < pendingNames.size(); idx++) {
-            const UniValue& v = pendingNames[idx];
+        for (const auto& v : pendingNames.getValues())
+        {
             std::string name = find_value ( v, "name").get_str();
             std::string data = find_value ( v, "value").get_str();
             vNamesO[name] = NameTableEntry(name, data, NameTableEntry::NAME_NEW);
         }
 
         // Add existing names
-        for(std::pair<std::string, NameTableEntry> item : vNamesO)
+        for(const auto& item : vNamesO)
             cachedNameTable.append(item.second);
 
         // Add pending names (name_new)
-        for(std::pair<std::string, NameNewReturn> item : wallet->pendingNameFirstUpdate)
+        for(const auto& item : wallet->pendingNameFirstUpdate)
             cachedNameTable.append(
                 NameTableEntry(item.first,
                                item.second.data,

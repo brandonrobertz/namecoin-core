@@ -1,12 +1,12 @@
 #include "configurenamedialog.h"
 #include "ui_configurenamedialog.h"
 
-#include "guiutil.h"
 #include "addressbookpage.h"
-#include "walletmodel.h"
+#include "guiutil.h"
 #include "names/main.h"
-#include "wallet/wallet.h"
 #include "platformstyle.h"
+#include "walletmodel.h"
+#include "wallet/wallet.h"
 
 #include <QMessageBox>
 #include <QClipboard>
@@ -26,7 +26,7 @@ ConfigureNameDialog::ConfigureNameDialog(const PlatformStyle *platformStyle,
     ui->transferToLayout->setSpacing(4);
 #endif
 
-    GUIUtil::setupAddressWidget(ui->transferTo, this, true);
+    GUIUtil::setupAddressWidget(ui->transferTo, this);
 
     ui->labelName->setText(name);
     ui->dataEdit->setText(data);
@@ -46,12 +46,12 @@ ConfigureNameDialog::ConfigureNameDialog(const PlatformStyle *platformStyle,
         ui->addressBookButton->hide();
         ui->pasteButton->hide();
         ui->labelSubmitHint->setText(
-            tr("Name_firstupdate transaction will be queued and broadcasted when corresponding name_new is %1 blocks old")
+            tr("name_firstupdate transaction will be queued and broadcasted when corresponding name_new is %1 blocks old")
             .arg(MIN_FIRSTUPDATE_DEPTH));
     }
     else
     {
-        ui->labelSubmitHint->setText(tr("Name_update transaction will be issued immediately"));
+        ui->labelSubmitHint->setText(tr("name_update transaction will be issued immediately"));
         setWindowTitle(tr("Update Name"));
     }
 }
@@ -70,7 +70,7 @@ void ConfigureNameDialog::accept()
     QString addr;
     if (!firstUpdate)
     {
-        if (!ui->transferTo->hasAcceptableInput())
+        if (!ui->transferTo->text().isEmpty() && !ui->transferTo->hasAcceptableInput())
         {
             ui->transferTo->setValid(false);
             return;

@@ -15,8 +15,8 @@
   - All lower-case letters except for 'l'
 */
 
-BitcoinAddressEntryValidator::BitcoinAddressEntryValidator(QObject *parent, bool fAllowEmpty) :
-    QValidator(parent), allowEmpty(fAllowEmpty)
+BitcoinAddressEntryValidator::BitcoinAddressEntryValidator(QObject *parent) :
+    QValidator(parent)
 {
 }
 

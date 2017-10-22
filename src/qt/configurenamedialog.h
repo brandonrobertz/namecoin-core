@@ -28,7 +28,7 @@ public:
     const QString &getReturnData() const { return returnData; }
 
 public Q_SLOTS:
-    void accept();
+    void accept() override;
     void on_addressBookButton_clicked();
     void on_pasteButton_clicked();
 

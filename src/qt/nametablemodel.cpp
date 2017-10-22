@@ -19,11 +19,13 @@
 #include <QObject>
 
 // ExpiresIn column is right-aligned as it contains numbers
-static int column_alignments[] = {
+namespace {
+    int column_alignments[] = {
         Qt::AlignLeft|Qt::AlignVCenter,     // Name
         Qt::AlignLeft|Qt::AlignVCenter,     // Value
         Qt::AlignRight|Qt::AlignVCenter     // Expires in
     };
+}
 
 struct NameTableEntryLessThan
 {

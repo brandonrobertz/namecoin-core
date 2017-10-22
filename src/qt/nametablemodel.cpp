@@ -272,7 +272,6 @@ NameTableModel::NameTableModel(const PlatformStyle *platformStyle, CWallet* wall
         platformStyle(platformStyle)
 {
     columns << tr("Name") << tr("Value") << tr("Expires in");
-    priv = new NameTablePriv(wallet, this);
     priv->refreshNameTable();
 
     QTimer *timer = new QTimer(this);
@@ -302,24 +301,12 @@ void NameTableModel::updateExpiration()
         {
             NameTableEntry *item = priv->index(i);
             if (!item->HeightValid())
-                continue;       // Currently, unconfirmed names do not expire in the table
+                continue; // Currently, unconfirmed names do not expire in the table
+
             int nHeight = item->nHeight;
-
-            // NOTE: the line below used to be: GetExpirationDepth(nHeight)
-            // I changed it to just nHeight for now
-            // int GetExpirationDepth(int nHeight) {
-            //     if (nHeight < 24000)
-            //         return 12000;
-            //     if (nHeight < 48000)
-            //         return nHeight - 12000;
-            //     return 36000;
-            // }
-
-            const Consensus::Params& params = Params ().GetConsensus ();
-            if (nHeight + params.rules->NameExpirationDepth (nHeight) - nBestHeight <= 0)
+            const Consensus::Params& params = Params().GetConsensus();
+            if (nHeight + params.rules->NameExpirationDepth(nHeight) - nBestHeight <= 0)
             {
-            //if (nHeight + 36000 - nBestHeight <= 0)
-            //{
                 priv->updateEntry(item->name, item->value, item->nHeight, CT_DELETED);
                 // Data array changed - restart scan
                 n = priv->size();
@@ -393,8 +380,7 @@ int NameTableModel::columnCount(const QModelIndex &parent /*= QModelIndex()*/) c
     return columns.length();
 }
 
-QVariant
-NameTableModel::data(const QModelIndex &index, int role) const
+QVariant NameTableModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid())
         return QVariant();

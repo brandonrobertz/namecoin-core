@@ -44,12 +44,6 @@
 #include <map>
 #include <univalue.h>
 
-/* We need the following functions declared for use in the QT UI */
-extern UniValue name_new(const JSONRPCRequest& request);
-extern UniValue name_update(const JSONRPCRequest& request);
-extern UniValue name_firstupdate(const JSONRPCRequest& request);
-extern UniValue gettransaction(const JSONRPCRequest& request);
-
 WalletModel::WalletModel(const PlatformStyle *platformStyle, CWallet *_wallet, OptionsModel *_optionsModel, QWidget *parent) :
     QWidget(parent), wallet(_wallet), optionsModel(_optionsModel), addressTableModel(0),
     transactionTableModel(0),
@@ -124,7 +118,7 @@ void WalletModel::updateStatus()
 {
     EncryptionStatus newEncryptionStatus = getEncryptionStatus();
 
-    if(cachedEncryptionStatus != newEncryptionStatus)
+    if (cachedEncryptionStatus != newEncryptionStatus)
         Q_EMIT encryptionStatusChanged(newEncryptionStatus);
 }
 
@@ -134,10 +128,10 @@ void WalletModel::pollBalanceChanged()
     // periodical polls if the core is holding the locks for a longer time -
     // for example, during a wallet rescan.
     TRY_LOCK(cs_main, lockMain);
-    if(!lockMain)
+    if (!lockMain)
         return;
 
-    if(fForceCheckBalanceChanged || chainActive.Height() != cachedNumBlocks)
+    if (fForceCheckBalanceChanged || chainActive.Height() != cachedNumBlocks)
     {
         fForceCheckBalanceChanged = false;
 
@@ -145,7 +139,7 @@ void WalletModel::pollBalanceChanged()
         cachedNumBlocks = chainActive.Height();
 
         checkBalanceChanged();
-        if(transactionTableModel)
+        if (transactionTableModel)
             transactionTableModel->updateConfirmations();
 
         std::vector<std::string> successfulNames = sendPendingNameFirstUpdates();
@@ -171,7 +165,7 @@ void WalletModel::checkBalanceChanged()
         newWatchImmatureBalance = getWatchImmatureBalance();
     }
 
-    if(cachedBalance != newBalance || cachedUnconfirmedBalance != newUnconfirmedBalance || cachedImmatureBalance != newImmatureBalance ||
+    if (cachedBalance != newBalance || cachedUnconfirmedBalance != newUnconfirmedBalance || cachedImmatureBalance != newImmatureBalance ||
         cachedWatchOnlyBalance != newWatchOnlyBalance || cachedWatchUnconfBalance != newWatchUnconfBalance || cachedWatchImmatureBalance != newWatchImmatureBalance)
     {
         cachedBalance = newBalance;
@@ -194,7 +188,7 @@ void WalletModel::updateTransaction()
 void WalletModel::updateAddressBook(const QString &address, const QString &label,
         bool isMine, const QString &purpose, int status)
 {
-    if(addressTableModel)
+    if (addressTableModel)
         addressTableModel->updateEntry(address, label, isMine, purpose, status);
 }
 
@@ -216,7 +210,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
     QList<SendCoinsRecipient> recipients = transaction.getRecipients();
     std::vector<CRecipient> vecSend;
 
-    if(recipients.empty())
+    if (recipients.empty())
     {
         return OK;
     }
@@ -253,11 +247,11 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         }
         else
         {   // User-entered bitcoin address / amount:
-            if(!validateAddress(rcp.address))
+            if (!validateAddress(rcp.address))
             {
                 return InvalidAddress;
             }
-            if(rcp.amount <= 0)
+            if (rcp.amount <= 0)
             {
                 return InvalidAmount;
             }
@@ -271,14 +265,14 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             total += rcp.amount;
         }
     }
-    if(setAddress.size() != nAddresses)
+    if (setAddress.size() != nAddresses)
     {
         return DuplicateAddress;
     }
 
     CAmount nBalance = getBalance(&coinControl);
 
-    if(total > nBalance)
+    if (total > nBalance)
     {
         return AmountExceedsBalance;
     }
@@ -299,9 +293,9 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         if (fSubtractFeeFromAmount && fCreated)
             transaction.reassignAmounts(nChangePosRet);
 
-        if(!fCreated)
+        if (!fCreated)
         {
-            if(!fSubtractFeeFromAmount && (total + nFeeRequired) > nBalance)
+            if (!fSubtractFeeFromAmount && (total + nFeeRequired) > nBalance)
             {
                 return SendCoinsReturn(AmountWithFeeExceedsBalance);
             }
@@ -349,7 +343,7 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
 
         CReserveKey *keyChange = transaction.getPossibleKeyChange();
         CValidationState state;
-        if(!wallet->CommitTransaction(*newTx, *keyChange, g_connman.get(), state))
+        if (!wallet->CommitTransaction(*newTx, *keyChange, g_connman.get(), state))
             return SendCoinsReturn(TransactionCommitFailed, QString::fromStdString(state.GetRejectReason()));
 
         CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
@@ -418,11 +412,11 @@ RecentRequestsTableModel *WalletModel::getRecentRequestsTableModel()
 
 WalletModel::EncryptionStatus WalletModel::getEncryptionStatus() const
 {
-    if(!wallet->IsCrypted())
+    if (!wallet->IsCrypted())
     {
         return Unencrypted;
     }
-    else if(wallet->IsLocked())
+    else if (wallet->IsLocked())
     {
         return Locked;
     }
@@ -434,7 +428,7 @@ WalletModel::EncryptionStatus WalletModel::getEncryptionStatus() const
 
 bool WalletModel::setWalletEncrypted(bool encrypted, const SecureString &passphrase)
 {
-    if(encrypted)
+    if (encrypted)
     {
         // Encrypt
         return wallet->EncryptWallet(passphrase);
@@ -448,7 +442,7 @@ bool WalletModel::setWalletEncrypted(bool encrypted, const SecureString &passphr
 
 bool WalletModel::setWalletLocked(bool locked, const SecureString &passPhrase)
 {
-    if(locked)
+    if (locked)
     {
         // Lock
         return wallet->Lock();
@@ -546,7 +540,7 @@ void WalletModel::unsubscribeFromCoreSignals()
 WalletModel::UnlockContext WalletModel::requestUnlock()
 {
     bool was_locked = getEncryptionStatus() == Locked;
-    if(was_locked)
+    if (was_locked)
     {
         // Request UI to unlock wallet
         Q_EMIT requireUnlock();
@@ -566,7 +560,7 @@ WalletModel::UnlockContext::UnlockContext(WalletModel *_wallet, bool _valid, boo
 
 WalletModel::UnlockContext::~UnlockContext()
 {
-    if(valid && relock)
+    if (valid && relock)
     {
         wallet->setWalletLocked(true);
     }
@@ -733,7 +727,7 @@ bool WalletModel::bumpFee(uint256 hash)
     }
 
     WalletModel::UnlockContext ctx(requestUnlock());
-    if(!ctx.isValid())
+    if (!ctx.isValid())
     {
         return false;
     }
@@ -753,7 +747,7 @@ bool WalletModel::bumpFee(uint256 hash)
         LOCK2(cs_main, wallet->cs_wallet);
         res = feeBump->commit(wallet);
     }
-    if(!res) {
+    if (!res) {
         QMessageBox::critical(0, tr("Fee bump error"), tr("Could not commit transaction") + "<br />(" +
             QString::fromStdString(feeBump->getErrors()[0])+")");
          return false;
@@ -801,7 +795,7 @@ bool WalletModel::nameAvailable(const QString &name)
     }
 
     isExpired = find_value( res, "expired");
-    if(isExpired.get_bool())
+    if (isExpired.get_bool())
       return true;
 
     return false;
@@ -823,13 +817,13 @@ NameNewReturn WalletModel::nameNew(const QString &name)
 
     params.push_back(Pair("name", strName));
 
-    jsonRequest.strMethod = std::string("name_new");
+    jsonRequest.strMethod = "name_new";
     jsonRequest.params = params;
     jsonRequest.fHelp = false;
 
     try {
         std::cout << "name_new\n";
-        res = name_new(jsonRequest);
+        res = tableRPC.execute(jsonRequest);
     } catch (const UniValue& e) {
         UniValue message = find_value( e, "message");
         std::string errorStr = message.get_str();
@@ -878,14 +872,14 @@ QString WalletModel::nameFirstUpdatePrepare(const QString& name, const QString& 
 //    updatedNameNewReturn.hex = txid;
 //    updatedNameNewReturn.rand = rand;
 //    updatedNameNewReturn.data = strData;
-//    if(!toaddress.empty ())
+//    if (!toaddress.empty ())
 //        updatedNameNewReturn.toaddress = toaddress;
 //
 //    UniValue uniNameUpdateData(UniValue::VOBJ);
 //    uniNameUpdateData.pushKV ("txid", txid);
 //    uniNameUpdateData.pushKV ("rand", rand);
 //    uniNameUpdateData.pushKV ("data", strData);
-//    if(!toaddress.empty ())
+//    if (!toaddress.empty ())
 //        uniNameUpdateData.pushKV ("toaddress", toaddress);
 //
 //    std::string jsonData = uniNameUpdateData.write();
@@ -909,10 +903,10 @@ std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::
     params.push_back (Pair("rand", rand));
     params.push_back (Pair("tx", txid));
     params.push_back (Pair("value", data));
-    if(!toaddress.empty())
+    if (!toaddress.empty())
         params.push_back (Pair("toaddress", toaddress));
 
-    jsonRequest.strMethod = std::string("name_firstupdate");
+    jsonRequest.strMethod = "name_firstupdate";
     jsonRequest.params = params;
     jsonRequest.fHelp = false;
 
@@ -920,7 +914,7 @@ std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::
         name.c_str(), rand.c_str(), txid.c_str(), data.c_str());
 
     try {
-        res = name_firstupdate (jsonRequest);
+        res = tableRPC.execute(jsonRequest);
     }
     catch (const UniValue& e) {
         UniValue message = find_value( e, "message");
@@ -962,11 +956,14 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
         std::cout << "***** DATA " << data << '\n';
 
         params1.push_back (Pair("txid", txid));
+        jsonRequest.strMethod = "gettransaction";
         jsonRequest.params = params1;
+        jsonRequest.fHelp = false;
+
         // if we're here, the names doesn't exist
         // should we remove it from the DB?
         try {
-            res1 = gettransaction( jsonRequest);
+            res1 = tableRPC.execute(jsonRequest);
         }
         catch (const UniValue& e) {
             UniValue message = find_value( e, "message");
@@ -986,12 +983,12 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
         const int confirms = val.get_int ();
         LogPrintf ("Pending Name FirstUpdate Confirms: %d\n", confirms);
 
-        if ( confirms < 12)
+        if (confirms < 12)
         {
             continue;
         }
 
-        if(getEncryptionStatus() == Locked)
+        if (getEncryptionStatus() == Locked)
         {
             if (QMessageBox::Yes != QMessageBox::question(this,
                   tr("Confirm wallet unlock"),
@@ -1023,7 +1020,7 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
         }
 
         // if we got an error on name_firstupdate. prompt user for what to do
-        if(!completedResult.empty())
+        if (!completedResult.empty())
         {
             std::cout << "NOT EMPTY error response\n";
             QString errorMsg = tr("Namecoin Core has encountered an error while attempting to complete your name registration for name <b>%1</b>. The name_firstupdate operation caused the following error to occurr:<br><br>%2<br><br>Would you like to cancel the pending name registration?")

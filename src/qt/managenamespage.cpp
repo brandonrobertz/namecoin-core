@@ -80,10 +80,10 @@ void ManageNamesPage::setModel(WalletModel *walletModel)
     ui->tableView->horizontalHeader()->resizeSection(
             NameTableModel::Name, 320);
 #if QT_VERSION >= 0x050000
-    ui->tableView->horizontalHeader()->setSectionResizeMode( QHeaderView::Stretch);
+    ui->tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 #else
     // this function introduced in QT5
-    ui->tableView->horizontalHeader()->setResizeMode( QHeaderView::Stretch);
+    ui->tableView->horizontalHeader()->setResizeMode(QHeaderView::Stretch);
 #endif
 
 
@@ -100,8 +100,7 @@ void ManageNamesPage::on_submitNameButton_clicked()
 
     QString name = ui->registerName->text();
 
-    bool avail = walletModel->nameAvailable(name);
-    if (!avail)
+    if (!walletModel->nameAvailable(name))
     {
         QMessageBox::warning(this, tr("Name registration"), tr("Name not available"));
         ui->registerName->setFocus();
@@ -159,7 +158,7 @@ void ManageNamesPage::on_submitNameButton_clicked()
             jsonData.pushKV ("txid", res.hex);
             jsonData.pushKV ("rand", res.rand);
             jsonData.pushKV ("data", strData);
-            if(!res.toaddress.empty ())
+            if (!res.toaddress.empty ())
                 jsonData.pushKV ("toaddress", res.toaddress);
 
             walletModel->writePendingNameFirstUpdate(strName, res.rand, res.hex, strData, res.toaddress);
@@ -208,10 +207,10 @@ void ManageNamesPage::selectionChanged()
 {
     // Set button states based on selected tab and selection
     QTableView *table = ui->tableView;
-    if(!table->selectionModel())
+    if (!table->selectionModel())
         return;
 
-    bool state = table->selectionModel()->hasSelection();
+    const bool state = table->selectionModel()->hasSelection();
     ui->configureNameButton->setEnabled(state);
     ui->renewNameButton->setEnabled(state);
 }
@@ -235,10 +234,10 @@ void ManageNamesPage::onCopyValueAction()
 
 void ManageNamesPage::on_configureNameButton_clicked()
 {
-    if(!ui->tableView->selectionModel())
+    if (!ui->tableView->selectionModel())
         return;
     QModelIndexList indexes = ui->tableView->selectionModel()->selectedRows(NameTableModel::Name);
-    if(indexes.isEmpty())
+    if (indexes.isEmpty())
         return;
 
     QModelIndex index = indexes.at(0);
@@ -275,10 +274,10 @@ void ManageNamesPage::on_configureNameButton_clicked()
 void
 ManageNamesPage::on_renewNameButton_clicked ()
 {
-    if(!ui->tableView->selectionModel())
+    if (!ui->tableView->selectionModel())
         return;
     QModelIndexList indexes = ui->tableView->selectionModel()->selectedRows(NameTableModel::Name);
-    if(indexes.isEmpty())
+    if (indexes.isEmpty())
         return;
 
     QModelIndex index = indexes.at(0);
@@ -340,7 +339,7 @@ void ManageNamesPage::exportClicked()
     writer.addColumn("Value", NameTableModel::Value, Qt::EditRole);
     writer.addColumn("Expires In", NameTableModel::ExpiresIn, Qt::EditRole);
 
-    if(!writer.write())
+    if (!writer.write())
     {
         QMessageBox::critical(this, tr("Error exporting"), tr("Could not write to file %1.").arg(filename),
                               QMessageBox::Abort, QMessageBox::Abort);

@@ -19,6 +19,7 @@
 #include "chain.h"
 #include "keystore.h"
 #include "names/common.h"
+#include "names/main.h"
 #include "rpc/server.h"
 #include "rpc/client.h"
 #include "validation.h"
@@ -945,7 +946,7 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
         const int confirms = val.get_int ();
         LogPrintf ("Pending Name FirstUpdate Confirms: %d\n", confirms);
 
-        if (confirms < 12)
+        if ((unsigned int)confirms < MIN_FIRSTUPDATE_DEPTH)
         {
             continue;
         }

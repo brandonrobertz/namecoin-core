@@ -482,25 +482,24 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             std::string strName, strJsonData;
             ssKey >> strName;
             ssValue >> strJsonData;
-            UniValue jsonData, v1, v2, v3;
-            std::string txid, rand, pendingData;
+
+            UniValue jsonData;
             jsonData.read(strJsonData);
 
-            v1 = find_value (jsonData, "txid");
-            txid = v1.get_str();
+            UniValue uTxid = find_value (jsonData, "txid");
+            UniValue uRand = find_value (jsonData, "rand");
+            UniValue uPendingData = find_value (jsonData, "data");
 
-            v2 = find_value (jsonData, "rand");
-            rand = v2.get_str();
-
-            v3 = find_value (jsonData, "data");
-            pendingData = v3.get_str();
-
-            if(v1.type() != UniValue::VSTR ||
-               v2.type() != UniValue::VSTR ||
-               v3.type() != UniValue::VSTR) {
+            if(uTxid.type() != UniValue::VSTR ||
+               uRand.type() != UniValue::VSTR ||
+               uPendingData.type() != UniValue::VSTR) {
                 strErr = strprintf("Bad data while importing pending name firstupdate: %s\n", strName.c_str());
                 return false;
             }
+
+            std::string txid = uTxid.get_str();
+            std::string rand = uRand.get_str();
+            std::string pendingData = uPendingData.get_str();
 
             NameNewReturn ret;
             ret.hex = txid;

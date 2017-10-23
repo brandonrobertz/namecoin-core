@@ -777,12 +777,14 @@ bool WalletModel::getDefaultWalletRbf() const
 
 bool WalletModel::nameAvailable(const QString &name)
 {
-    JSONRPCRequest jsonRequest;
-    UniValue params (UniValue::VOBJ);
-    UniValue res, array, isExpired;
+    UniValue res, isExpired;
 
     const std::string strName = name.toStdString();
-    params.push_back (Pair("name", strName));
+
+    UniValue params (UniValue::VOBJ);
+    params.pushKV ("name", strName);
+
+    JSONRPCRequest jsonRequest;
     jsonRequest.strMethod = "name_show";
     jsonRequest.params = params;
     jsonRequest.fHelp = false;
@@ -816,19 +818,18 @@ NameNewReturn WalletModel::nameNew(const QString &name)
     std::string strName = name.toStdString ();
     std::string data;
 
-    JSONRPCRequest jsonRequest;
-    UniValue params(UniValue::VOBJ);
     std::vector<UniValue> values;
-    UniValue res, txid, rand;
 
-    NameNewReturn retval;
+    UniValue params(UniValue::VOBJ);
+    params.pushKV("name", strName);
 
-    params.push_back(Pair("name", strName));
-
+    JSONRPCRequest jsonRequest;
     jsonRequest.strMethod = "name_new";
     jsonRequest.params = params;
     jsonRequest.fHelp = false;
 
+    NameNewReturn retval;
+    UniValue res;
     try {
         std::cout << "name_new\n";
         res = tableRPC.execute(jsonRequest);
@@ -844,76 +845,30 @@ NameNewReturn WalletModel::nameNew(const QString &name)
     retval.ok = true;
 
     values = res.getValues();
-    txid = values[0];
-    rand = values[1];
+    UniValue txid = values[0];
+    UniValue rand = values[1];
 
-    // txid
-    retval.hex = txid.get_str();
-    // rand
+    retval.hex = txid.get_str(); // txid
     retval.rand = rand.get_str();
 
     return retval;
 }
 
-// this gets called from configure names dialog after name_new succeeds
-QString WalletModel::nameFirstUpdatePrepare(const QString& name, const QString& data)
-{
-//    std::cout << "WalletModel::nameFirstUpdatePrepare\n";
-//
-//    if (data.isEmpty())
-//        return tr("Data cannot be blank.");
-//
-//    const std::string strName = name.toStdString();
-//    const std::string strData = data.toStdString();
-//    NameNewReturn updatedNameNewReturn;
-//
-//    std::cout << "performing check\n";
-//    if (!this->pendingNameFirstUpdateExists(name))
-//        return tr("Cannot find stored name_new data for name");
-//
-//    NameNewReturn stored = this->readPendingNameFirstUpdate(name);
-//    const std::string txid = stored.hex;
-//    const std::string rand = stored.rand;
-//    const std::string toaddress = stored.toaddress;
-//
-//    updatedNameNewReturn.ok = true;
-//    updatedNameNewReturn.hex = txid;
-//    updatedNameNewReturn.rand = rand;
-//    updatedNameNewReturn.data = strData;
-//    if (!toaddress.empty ())
-//        updatedNameNewReturn.toaddress = toaddress;
-//
-//    UniValue uniNameUpdateData(UniValue::VOBJ);
-//    uniNameUpdateData.pushKV ("txid", txid);
-//    uniNameUpdateData.pushKV ("rand", rand);
-//    uniNameUpdateData.pushKV ("data", strData);
-//    if (!toaddress.empty ())
-//        uniNameUpdateData.pushKV ("toaddress", toaddress);
-//
-//    std::string jsonData = uniNameUpdateData.write();
-//    LogPrintf ("Writing pending name_firstupdate %s => %s\n", strName.c_str(), jsonData.c_str());
-//
-//    //this->writePendingNameFirstUpdate(name, uniNameUpdateData, updatedNameNewReturn);
-//
-    return tr("");
-}
-
 std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress)
 {
-    JSONRPCRequest jsonRequest;
-    UniValue params(UniValue::VOBJ);
-    UniValue res;
     std::string errorStr;
 
     std::cout << "VALUE " << data << '\n';
 
-    params.push_back (Pair("name", name));
-    params.push_back (Pair("rand", rand));
-    params.push_back (Pair("tx", txid));
-    params.push_back (Pair("value", data));
+    UniValue params(UniValue::VOBJ);
+    params.pushKV ("name", name);
+    params.pushKV ("rand", rand);
+    params.pushKV ("tx", txid);
+    params.pushKV ("value", data);
     if (!toaddress.empty())
-        params.push_back (Pair("toaddress", toaddress));
+        params.pushKV ("toaddress", toaddress);
 
+    JSONRPCRequest jsonRequest;
     jsonRequest.strMethod = "name_firstupdate";
     jsonRequest.params = params;
     jsonRequest.fHelp = false;
@@ -921,6 +876,7 @@ std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::
     LogPrintf("executing name_firstupdate name=%s rand=%s tx=%s value=%s\n",
         name.c_str(), rand.c_str(), txid.c_str(), data.c_str());
 
+    UniValue res;
     try {
         res = tableRPC.execute(jsonRequest);
     }
@@ -953,7 +909,6 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
         // this will drive the error-handling popup
         std::string completedResult;
 
-
         std::string name = i->first;
         std::string txid = i->second.hex;
         std::string rand = i->second.rand;
@@ -963,7 +918,7 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
         std::cout << "***** NAME " << name << '\n';
         std::cout << "***** DATA " << data << '\n';
 
-        params1.push_back (Pair("txid", txid));
+        params1.pushKV ("txid", txid);
         jsonRequest.strMethod = "gettransaction";
         jsonRequest.params = params1;
         jsonRequest.fHelp = false;
@@ -1058,22 +1013,19 @@ QString WalletModel::nameUpdate(const QString &name, const QString &data, const 
     std::string strData = data.toStdString ();
     std::string strTransferToAddress = transferToAddress.toStdString ();
 
-    JSONRPCRequest jsonRequest;
     UniValue params(UniValue::VOBJ);
-    UniValue res;
+    params.pushKV ("name", strName);
+    params.pushKV ("value", strData);
 
-    std::string tx;
-
-    params.push_back (Pair("name", strName));
-    params.push_back (Pair("value", strData));
-
+    JSONRPCRequest jsonRequest;
     jsonRequest.strMethod = "name_update";
     jsonRequest.params = params;
     jsonRequest.fHelp = false;
 
     if (strTransferToAddress != "")
-        params.push_back (Pair("toaddress", strTransferToAddress));
+        params.pushKV ("toaddress", strTransferToAddress);
 
+    UniValue res;
     try {
         res = tableRPC.execute(jsonRequest);
     }

@@ -212,22 +212,13 @@ public:
     bool abandonTransaction(uint256 hash) const;
     bool nameAvailable(const QString &name);
 
-    // Register new name
-    // Requires unlocked wallet; can throw exception instead of returning error
     NameNewReturn nameNew(const QString &name);
-
-    // Create pending name update
-    // Requires unlocked wallet; can throw exception instead of returning error
-    QString nameFirstUpdatePrepare(const QString &name, const QString &data);
-
-    // Send pending name updates, if they are 12 blocks old
     std::vector<std::string> sendPendingNameFirstUpdates();
-
     std::string completePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress);
-
-    // Update name
-    // Requires unlocked wallet; can throw exception instead of returning error
     QString nameUpdate(const QString &name, const QString &data, const QString &transferToAddress);
+    bool writePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress);
+    bool pendingNameFirstUpdateExists(std::string &name);
+    NameNewReturn getPendingNameFirstUpdate(std::string &name);
 
     bool transactionCanBeBumped(uint256 hash) const;
     bool bumpFee(uint256 hash);
@@ -239,11 +230,6 @@ public:
     int getDefaultConfirmTarget() const;
 
     bool getDefaultWalletRbf() const;
-
-    bool writePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress);
-    bool pendingNameFirstUpdateExists(std::string &name);
-    NameNewReturn getPendingNameFirstUpdate(std::string &name);
-
 private:
     CWallet *wallet;
     bool fHaveWatchOnly;

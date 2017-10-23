@@ -224,7 +224,7 @@ def ToHex(obj):
 
 # Objects that map to bitcoind objects, which can be serialized/deserialized
 
-class CAddress():
+class CAddress(object):
     def __init__(self):
         self.nServices = 1
         self.pchReserved = b"\x00" * 10 + b"\xff" * 2
@@ -251,7 +251,7 @@ class CAddress():
 
 MSG_WITNESS_FLAG = 1<<30
 
-class CInv():
+class CInv(object):
     typemap = {
         0: "Error",
         1: "TX",
@@ -280,7 +280,7 @@ class CInv():
             % (self.typemap[self.type], self.hash)
 
 
-class CBlockLocator():
+class CBlockLocator(object):
     def __init__(self):
         self.nVersion = MY_VERSION
         self.vHave = []
@@ -300,7 +300,7 @@ class CBlockLocator():
             % (self.nVersion, repr(self.vHave))
 
 
-class COutPoint():
+class COutPoint(object):
     def __init__(self, hash=0, n=0):
         self.hash = hash
         self.n = n
@@ -319,7 +319,7 @@ class COutPoint():
         return "COutPoint(hash=%064x n=%i)" % (self.hash, self.n)
 
 
-class CTxIn():
+class CTxIn(object):
     def __init__(self, outpoint=None, scriptSig=b"", nSequence=0):
         if outpoint is None:
             self.prevout = COutPoint()
@@ -347,7 +347,7 @@ class CTxIn():
                self.nSequence)
 
 
-class CTxOut():
+class CTxOut(object):
     def __init__(self, nValue=0, scriptPubKey=b""):
         self.nValue = nValue
         self.scriptPubKey = scriptPubKey
@@ -368,7 +368,7 @@ class CTxOut():
                bytes_to_hex_str(self.scriptPubKey))
 
 
-class CScriptWitness():
+class CScriptWitness(object):
     def __init__(self):
         # stack is a vector of strings
         self.stack = []
@@ -383,7 +383,7 @@ class CScriptWitness():
         return True
 
 
-class CTxInWitness():
+class CTxInWitness(object):
     def __init__(self):
         self.scriptWitness = CScriptWitness()
 
@@ -400,7 +400,7 @@ class CTxInWitness():
         return self.scriptWitness.is_null()
 
 
-class CTxWitness():
+class CTxWitness(object):
     def __init__(self):
         self.vtxinwit = []
 
@@ -428,7 +428,7 @@ class CTxWitness():
         return True
 
 
-class CTransaction():
+class CTransaction(object):
     def __init__(self, tx=None):
         if tx is None:
             self.nVersion = 1
@@ -560,7 +560,7 @@ class CAuxPow(CTransaction):
         r += self.parentBlock.serialize()
         return r
 
-class CBlockHeader():
+class CBlockHeader(object):
     def __init__(self, header=None):
         if header is None:
             self.set_null()
@@ -722,7 +722,7 @@ class CBlock(CBlockHeader):
                time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
 
 
-class CUnsignedAlert():
+class CUnsignedAlert(object):
     def __init__(self):
         self.nVersion = 1
         self.nRelayUntil = 0
@@ -777,7 +777,7 @@ class CUnsignedAlert():
                self.strComment, self.strStatusBar, self.strReserved)
 
 
-class CAlert():
+class CAlert(object):
     def __init__(self):
         self.vchMsg = b""
         self.vchSig = b""
@@ -797,7 +797,7 @@ class CAlert():
             % (len(self.vchMsg), len(self.vchSig))
 
 
-class PrefilledTransaction():
+class PrefilledTransaction(object):
     def __init__(self, index=0, tx = None):
         self.index = index
         self.tx = tx
@@ -823,7 +823,7 @@ class PrefilledTransaction():
         return "PrefilledTransaction(index=%d, tx=%s)" % (self.index, repr(self.tx))
 
 # This is what we send on the wire, in a cmpctblock message.
-class P2PHeaderAndShortIDs():
+class P2PHeaderAndShortIDs(object):
     def __init__(self):
         self.header = CBlockHeader()
         self.nonce = 0
@@ -875,7 +875,7 @@ def calculate_shortid(k0, k1, tx_hash):
 
 # This version gets rid of the array lengths, and reinterprets the differential
 # encoding into indices that can be used for lookup.
-class HeaderAndShortIDs():
+class HeaderAndShortIDs(object):
     def __init__(self, p2pheaders_and_shortids = None):
         self.header = CBlockHeader()
         self.nonce = 0
@@ -936,7 +936,7 @@ class HeaderAndShortIDs():
         return "HeaderAndShortIDs(header=%s, nonce=%d, shortids=%s, prefilledtxn=%s" % (repr(self.header), self.nonce, repr(self.shortids), repr(self.prefilled_txn))
 
 
-class BlockTransactionsRequest():
+class BlockTransactionsRequest(object):
 
     def __init__(self, blockhash=0, indexes = None):
         self.blockhash = blockhash
@@ -976,7 +976,7 @@ class BlockTransactionsRequest():
         return "BlockTransactionsRequest(hash=%064x indexes=%s)" % (self.blockhash, repr(self.indexes))
 
 
-class BlockTransactions():
+class BlockTransactions(object):
 
     def __init__(self, blockhash=0, transactions = None):
         self.blockhash = blockhash
@@ -1000,7 +1000,7 @@ class BlockTransactions():
 
 
 # Objects that correspond to messages on the wire
-class msg_version():
+class msg_version(object):
     command = b"version"
 
     def __init__(self):
@@ -1068,7 +1068,7 @@ class msg_version():
                self.strSubVer, self.nStartingHeight, self.nRelay)
 
 
-class msg_verack():
+class msg_verack(object):
     command = b"verack"
 
     def __init__(self):
@@ -1084,7 +1084,7 @@ class msg_verack():
         return "msg_verack()"
 
 
-class msg_addr():
+class msg_addr(object):
     command = b"addr"
 
     def __init__(self):
@@ -1100,7 +1100,7 @@ class msg_addr():
         return "msg_addr(addrs=%s)" % (repr(self.addrs))
 
 
-class msg_alert():
+class msg_alert(object):
     command = b"alert"
 
     def __init__(self):
@@ -1119,7 +1119,7 @@ class msg_alert():
         return "msg_alert(alert=%s)" % (repr(self.alert), )
 
 
-class msg_inv():
+class msg_inv(object):
     command = b"inv"
 
     def __init__(self, inv=None):
@@ -1138,7 +1138,7 @@ class msg_inv():
         return "msg_inv(inv=%s)" % (repr(self.inv))
 
 
-class msg_getdata():
+class msg_getdata(object):
     command = b"getdata"
 
     def __init__(self, inv=None):
@@ -1154,7 +1154,7 @@ class msg_getdata():
         return "msg_getdata(inv=%s)" % (repr(self.inv))
 
 
-class msg_getblocks():
+class msg_getblocks(object):
     command = b"getblocks"
 
     def __init__(self):
@@ -1177,7 +1177,7 @@ class msg_getblocks():
             % (repr(self.locator), self.hashstop)
 
 
-class msg_tx():
+class msg_tx(object):
     command = b"tx"
 
     def __init__(self, tx=CTransaction()):
@@ -1198,7 +1198,7 @@ class msg_witness_tx(msg_tx):
         return self.tx.serialize_with_witness()
 
 
-class msg_block():
+class msg_block(object):
     command = b"block"
 
     def __init__(self, block=None):
@@ -1218,7 +1218,7 @@ class msg_block():
 
 # for cases where a user needs tighter control over what is sent over the wire
 # note that the user must supply the name of the command, and the data
-class msg_generic():
+class msg_generic(object):
     def __init__(self, command, data=None):
         self.command = command
         self.data = data
@@ -1235,7 +1235,7 @@ class msg_witness_block(msg_block):
         r = self.block.serialize(with_witness=True)
         return r
 
-class msg_getaddr():
+class msg_getaddr(object):
     command = b"getaddr"
 
     def __init__(self):
@@ -1251,7 +1251,7 @@ class msg_getaddr():
         return "msg_getaddr()"
 
 
-class msg_ping_prebip31():
+class msg_ping_prebip31(object):
     command = b"ping"
 
     def __init__(self):
@@ -1267,7 +1267,7 @@ class msg_ping_prebip31():
         return "msg_ping() (pre-bip31)"
 
 
-class msg_ping():
+class msg_ping(object):
     command = b"ping"
 
     def __init__(self, nonce=0):
@@ -1285,7 +1285,7 @@ class msg_ping():
         return "msg_ping(nonce=%08x)" % self.nonce
 
 
-class msg_pong():
+class msg_pong(object):
     command = b"pong"
 
     def __init__(self, nonce=0):
@@ -1303,7 +1303,7 @@ class msg_pong():
         return "msg_pong(nonce=%08x)" % self.nonce
 
 
-class msg_mempool():
+class msg_mempool(object):
     command = b"mempool"
 
     def __init__(self):
@@ -1318,7 +1318,7 @@ class msg_mempool():
     def __repr__(self):
         return "msg_mempool()"
 
-class msg_sendheaders():
+class msg_sendheaders(object):
     command = b"sendheaders"
 
     def __init__(self):
@@ -1338,7 +1338,7 @@ class msg_sendheaders():
 # number of entries
 # vector of hashes
 # hash_stop (hash of last desired block header, 0 to get as many as possible)
-class msg_getheaders():
+class msg_getheaders(object):
     command = b"getheaders"
 
     def __init__(self):
@@ -1363,7 +1363,7 @@ class msg_getheaders():
 
 # headers message has
 # <count> <vector of block headers>
-class msg_headers():
+class msg_headers(object):
     command = b"headers"
 
     def __init__(self, headers=None):
@@ -1383,7 +1383,7 @@ class msg_headers():
         return "msg_headers(headers=%s)" % repr(self.headers)
 
 
-class msg_reject():
+class msg_reject(object):
     command = b"reject"
     REJECT_MALFORMED = 1
 
@@ -1414,7 +1414,7 @@ class msg_reject():
         return "msg_reject: %s %d %s [%064x]" \
             % (self.message, self.code, self.reason, self.data)
 
-class msg_feefilter():
+class msg_feefilter(object):
     command = b"feefilter"
 
     def __init__(self, feerate=0):
@@ -1431,7 +1431,7 @@ class msg_feefilter():
     def __repr__(self):
         return "msg_feefilter(feerate=%08x)" % self.feerate
 
-class msg_sendcmpct():
+class msg_sendcmpct(object):
     command = b"sendcmpct"
 
     def __init__(self):
@@ -1451,7 +1451,7 @@ class msg_sendcmpct():
     def __repr__(self):
         return "msg_sendcmpct(announce=%s, version=%lu)" % (self.announce, self.version)
 
-class msg_cmpctblock():
+class msg_cmpctblock(object):
     command = b"cmpctblock"
 
     def __init__(self, header_and_shortids = None):
@@ -1469,7 +1469,7 @@ class msg_cmpctblock():
     def __repr__(self):
         return "msg_cmpctblock(HeaderAndShortIDs=%s)" % repr(self.header_and_shortids)
 
-class msg_getblocktxn():
+class msg_getblocktxn(object):
     command = b"getblocktxn"
 
     def __init__(self):
@@ -1487,7 +1487,7 @@ class msg_getblocktxn():
     def __repr__(self):
         return "msg_getblocktxn(block_txn_request=%s)" % (repr(self.block_txn_request))
 
-class msg_blocktxn():
+class msg_blocktxn(object):
     command = b"blocktxn"
 
     def __init__(self):
@@ -1510,7 +1510,7 @@ class msg_witness_blocktxn(msg_blocktxn):
         r += self.block_transactions.serialize(with_witness=True)
         return r
 
-class NodeConnCB():
+class NodeConnCB(object):
     """Callback and helper functions for P2P connection to a bitcoind node.
 
     Individual testcases should subclass this and override the on_* methods
@@ -1671,6 +1671,7 @@ class NodeConnCB():
         test_function = lambda: self.last_message.get("pong") and self.last_message["pong"].nonce == self.ping_counter
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
         self.ping_counter += 1
+        return True
 
 # The actual NodeConn class
 # This class provides an interface for a p2p connection to a specified node

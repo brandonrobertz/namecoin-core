@@ -441,7 +441,6 @@ Qt::ItemFlags NameTableModel::flags(const QModelIndex &index) const
 {
     if (!index.isValid())
         return 0;
-    //NameTableEntry *rec = static_cast<NameTableEntry*>(index.internalPointer());
 
     return Qt::ItemIsSelectable | Qt::ItemIsEnabled;
 }

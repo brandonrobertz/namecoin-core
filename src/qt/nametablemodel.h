@@ -6,6 +6,8 @@
 #include <QAbstractTableModel>
 #include <QStringList>
 
+#include <memory>
+
 class PlatformStyle;
 class NameTablePriv;
 class CWallet;
@@ -20,8 +22,7 @@ class NameTableModel : public QAbstractTableModel
 
 public:
     explicit NameTableModel(const PlatformStyle *platformStyle, CWallet* wallet, WalletModel *parent = 0);
-    //explicit NameTableModel(CWallet *wallet, WalletModel *parent = 0);
-    ~NameTableModel();
+    virtual ~NameTableModel();
 
     enum ColumnIndex {
         Name = 0,
@@ -43,7 +44,7 @@ private:
     CWallet *wallet;
     WalletModel *walletModel;
     QStringList columns;
-    NameTablePriv *priv;
+    std::shared_ptr<NameTablePriv> priv;
     const PlatformStyle *platformStyle;
     int cachedNumBlocks;
 

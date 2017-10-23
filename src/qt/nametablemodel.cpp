@@ -284,7 +284,6 @@ NameTableModel::NameTableModel(const PlatformStyle *platformStyle, CWallet* wall
 NameTableModel::~NameTableModel()
 {
     unsubscribeFromCoreSignals();
-    delete priv;
 }
 
 void NameTableModel::updateExpiration()
@@ -448,15 +447,10 @@ Qt::ItemFlags NameTableModel::flags(const QModelIndex &index) const
 QModelIndex NameTableModel::index(int row, int column, const QModelIndex &parent /* = QModelIndex()*/) const
 {
     Q_UNUSED(parent);
-    NameTableEntry *data = priv->index(row);
-    if (data)
-    {
+    if (priv->index(row))
         return createIndex(row, column, priv->index(row));
-    }
-    else
-    {
-        return QModelIndex();
-    }
+
+    return QModelIndex();
 }
 
 // queue notifications to show a non freezing progress dialog e.g. for rescan
@@ -464,7 +458,7 @@ struct TransactionNotification
 {
 public:
     TransactionNotification() {}
-    TransactionNotification(uint256 hash, ChangeType status, bool showTransaction):
+    TransactionNotification(const uint256 hash, const ChangeType status, const bool showTransaction):
         hash(hash), status(status), showTransaction(showTransaction) {}
 
     void invoke(NameTableModel *ntm)
@@ -475,7 +469,7 @@ public:
                                   Q_ARG(int, status));
     }
 private:
-    uint256 hash;
+    const uint256 hash;
     ChangeType status;
     bool showTransaction;
 };
@@ -487,11 +481,8 @@ static void NotifyTransactionChanged(NameTableModel *ntm, CWallet *wallet, const
 {
     // Find transaction in wallet
     std::map<uint256, CWalletTx>::iterator mi = wallet->mapWallet.find(hash);
-    // Determine whether to show transaction or not (determine this here so that no relocking is needed in GUI thread)
     bool inWallet = mi != wallet->mapWallet.end();
-    // bool showTransaction = (inWallet && TransactionRecord::showTransaction(mi->second));
 
-    // TransactionNotification notification(hash, status, showTransaction);
     TransactionNotification notification(hash, status, inWallet);
 
     if (fQueueNotifications)

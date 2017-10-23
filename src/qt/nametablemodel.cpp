@@ -132,7 +132,7 @@ public:
         qSort(cachedNameTable.begin(), cachedNameTable.end(), NameTableEntryLessThan());
     }
 
-    void refreshName(const std::vector<unsigned char> &inName)
+    void refreshName(const valtype &inName)
     {
 
         LOCK(cs_main);
@@ -346,16 +346,15 @@ void NameTableModel::updateTransaction(const QString &hash, int status)
         CTransaction tx(mi->second);
     }
 
-    valtype valName;
-    const std::vector<CTxOut> vout = tx.vout;
-    for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end(); ++it)
+    const auto &vout = tx.vout;
+    for (const auto it : vout)
     {
-        if (!CNameScript::isNameScript(it->scriptPubKey))
+        if (!CNameScript::isNameScript(it.scriptPubKey))
         {
             continue;
         }
 
-        CNameScript nameScript(it->scriptPubKey);
+        CNameScript nameScript(it.scriptPubKey);
         switch (nameScript.getNameOp ())
         {
             case OP_NAME_NEW:
@@ -404,12 +403,9 @@ QVariant NameTableModel::data(const QModelIndex &index, int role) const
             if (!rec->HeightValid()) {
                 return QVariant();
             }
-            else {
-                int nBestHeight = chainActive.Height();
-                // OG: return rec->nHeight + GetDisplayExpirationDepth(rec->nHeight)
-                // - pindexBest->nHeight;
-                return rec->nHeight + 36000 - nBestHeight;
-            }
+            int nBestHeight = chainActive.Height();
+            const Consensus::Params& params = Params().GetConsensus();
+            return rec->nHeight + params.rules->NameExpirationDepth(rec->nHeight) - nBestHeight;
         }
     }
     return QVariant();

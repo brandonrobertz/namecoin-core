@@ -214,7 +214,7 @@ public:
 
     NameNewReturn nameNew(const QString &name);
     std::vector<std::string> sendPendingNameFirstUpdates();
-    std::string completePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress);
+    const std::string completePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress);
     QString nameUpdate(const QString &name, const QString &data, const QString &transferToAddress);
     bool writePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress);
     bool pendingNameFirstUpdateExists(std::string &name);

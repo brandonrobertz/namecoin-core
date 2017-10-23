@@ -842,19 +842,18 @@ NameNewReturn WalletModel::nameNew(const QString &name)
         return retval;
     }
 
-    retval.ok = true;
-
     values = res.getValues();
-    UniValue txid = values[0];
-    UniValue rand = values[1];
+    const auto txid = values[0];
+    const auto  rand = values[1];
 
+    retval.ok = true;
     retval.hex = txid.get_str(); // txid
     retval.rand = rand.get_str();
 
     return retval;
 }
 
-std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress)
+const std::string WalletModel::completePendingNameFirstUpdate(std::string &name, std::string &rand, std::string &txid, std::string &data, std::string &toaddress)
 {
     std::string errorStr;
 

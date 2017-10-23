@@ -19,11 +19,11 @@ BOOST_FIXTURE_TEST_SUITE(wallet_name_pending_tests, WalletTestingSetup)
 
 BOOST_AUTO_TEST_CASE(wallet_name_pending_tests)
 {
-    std::string nameGood = "test/name";
-    std::string nameBad = "test/baddata";
-    std::string txid = "9f73e1dfa3cbae23d008307e42e72beb8c010546ea2a7b9ff32619676a9c64a6";
-    std::string rand = "092abbca8a938103abcc";
-    std::string data = "{\"foo\": \"bar\"}";
+    const std::string nameGood = "test/name";
+    const std::string nameBad = "test/baddata";
+    const std::string txid = "9f73e1dfa3cbae23d008307e42e72beb8c010546ea2a7b9ff32619676a9c64a6";
+    const std::string rand = "092abbca8a938103abcc";
+    const std::string data = "{\"foo\": \"bar\"}";
 
     UniValue uniNameUpdateData(UniValue::VOBJ);
     uniNameUpdateData.pushKV ("txid", txid);
@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(wallet_name_pending_tests)
         BOOST_CHECK_NO_THROW(CWalletDB(dbw).LoadWallet(pwalletMain));
 
         // make sure we've added our pending name
-        BOOST_CHECK(pendingNameFirstUpdate.size() == 1);
+        BOOST_CHECK(pendingNameFirstUpdate.size() > 0);
         BOOST_CHECK(pendingNameFirstUpdate.find(nameGood) != pendingNameFirstUpdate.end());
 
         // put a bad name pending to the wallet
@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE(wallet_name_pending_tests)
         // load the wallet and ensure we don't segfault on the bad data
         BOOST_CHECK_NO_THROW(CWalletDB(dbw).LoadWallet(pwalletMain));
         // make sure we dont have this bad pending in memory
-        BOOST_CHECK(pendingNameFirstUpdate.size() == 1);
+        BOOST_CHECK(pendingNameFirstUpdate.size() > 0);
         BOOST_CHECK(pendingNameFirstUpdate.find(nameBad) == pendingNameFirstUpdate.end());
 
         // test removing the names

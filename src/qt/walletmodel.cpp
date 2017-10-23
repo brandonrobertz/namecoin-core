@@ -895,25 +895,22 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
     std::vector<std::string> successfulNames;
 
     LOCK(wallet->cs_wallet);
-    MapNameNewReturn pendingNameFirstUpdate = wallet->pendingNameFirstUpdate;
-    for (MapNameNewReturn::iterator i = pendingNameFirstUpdate.begin();
-         i != pendingNameFirstUpdate.end(); i++)
+    for (const auto& i : wallet->pendingNameFirstUpdate)
     {
-        LogPrintf("I=%i\n",  std::distance( pendingNameFirstUpdate.begin(), i));
-
         JSONRPCRequest jsonRequest;
         UniValue params1(UniValue::VOBJ);
         UniValue res1, val;
+
         // hold the error returned from name_firstupdate, via
         // completePendingNameFirstUpdate, or empty on success
         // this will drive the error-handling popup
         std::string completedResult;
 
-        std::string name = i->first;
-        std::string txid = i->second.hex;
-        std::string rand = i->second.rand;
-        std::string data = i->second.data;
-        std::string toaddress = i->second.toaddress;
+        std::string name = i.first;
+        std::string txid = i.second.hex;
+        std::string rand = i.second.rand;
+        std::string data = i.second.data;
+        std::string toaddress = i.second.toaddress;
 
         std::cout << "***** NAME " << name << '\n';
         std::cout << "***** DATA " << data << '\n';

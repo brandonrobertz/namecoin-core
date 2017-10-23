@@ -295,6 +295,7 @@ void NameTableModel::updateExpiration()
         LOCK(cs_main);
 
         cachedNumBlocks = nBestHeight;
+        std::vector<NameTableEntry*> expired;
         // Blocks came in since last poll.
         // Delete expired names
         for (int i = 0, n = priv->size(); i < n; i++)
@@ -303,17 +304,21 @@ void NameTableModel::updateExpiration()
             if (!item->HeightValid())
                 continue; // Currently, unconfirmed names do not expire in the table
 
-            int nHeight = item->nHeight;
             const Consensus::Params& params = Params().GetConsensus();
-            if (nHeight + params.rules->NameExpirationDepth(nHeight) - nBestHeight <= 0)
+            int nHeight = item->nHeight;
+            int expirationDepth = params.rules->NameExpirationDepth(nHeight);
+
+            if (nHeight + expirationDepth <= nBestHeight)
             {
-                priv->updateEntry(item->name, item->value, item->nHeight, CT_DELETED);
-                // Data array changed - restart scan
-                n = priv->size();
-                i = -1;
+                expired.push_back(item);
             }
 
         }
+
+        // process all expirations in bulk (don't mutate table while iterating
+        for(NameTableEntry *item : expired)
+            priv->updateEntry(item->name, item->value, item->nHeight, CT_DELETED);
+
         // Invalidate expiration counter for all rows.
         // Qt is smart enough to only actually request the data for the
         // visible rows.

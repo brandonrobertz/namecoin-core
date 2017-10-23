@@ -411,40 +411,33 @@ QVariant NameTableModel::data(const QModelIndex &index, int role) const
     return QVariant();
 }
 
-QVariant
-NameTableModel::headerData(int section, Qt::Orientation orientation, int role) const
+QVariant NameTableModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-    if (orientation == Qt::Horizontal)
+    if (orientation != Qt::Horizontal)
+        return QVariant();
+
+    if (role == Qt::DisplayRole)
+        return columns[section];
+
+    if (role == Qt::TextAlignmentRole)
+        return column_alignments[section];
+
+    if (role == Qt::ToolTipRole)
     {
-        if (role == Qt::DisplayRole)
+        switch(section)
         {
-            return columns[section];
-        }
-        else if (role == Qt::TextAlignmentRole)
-        {
-            return column_alignments[section];
-        }
-        else if (role == Qt::ToolTipRole)
-        {
-            switch(section)
-            {
-            case Name:
-                return tr("Name registered using Namecoin.");
-            case Value:
-                return tr("Data associated with the name.");
-            case ExpiresIn:
-                return tr("Number of blocks, after which the name will expire."
-                          " Update name to renew it.\nEmpty cell means pending"
-                          " (awaiting automatic name_firstupdate or awaiting "
-                          "network confirmation).");
-            }
+        case Name:
+            return tr("Name registered using Namecoin.");
+        case Value:
+            return tr("Data associated with the name.");
+        case ExpiresIn:
+            return tr("Number of blocks, after which the name will expire. Update name to renew it.\nEmpty cell means pending(awaiting automatic name_firstupdate or awaiting network confirmation).");
         }
     }
     return QVariant();
 }
 
-Qt::ItemFlags
-NameTableModel::flags(const QModelIndex &index) const
+Qt::ItemFlags NameTableModel::flags(const QModelIndex &index) const
 {
     if (!index.isValid())
         return 0;
@@ -453,8 +446,7 @@ NameTableModel::flags(const QModelIndex &index) const
     return Qt::ItemIsSelectable | Qt::ItemIsEnabled;
 }
 
-QModelIndex
-NameTableModel::index(int row, int column, const QModelIndex &parent /* = QModelIndex()*/) const
+QModelIndex NameTableModel::index(int row, int column, const QModelIndex &parent /* = QModelIndex()*/) const
 {
     Q_UNUSED(parent);
     NameTableEntry *data = priv->index(row);

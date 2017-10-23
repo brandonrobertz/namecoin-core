@@ -791,7 +791,15 @@ bool WalletModel::nameAvailable(const QString &name)
         res = tableRPC.execute(jsonRequest);
 
     } catch (const UniValue& e) {
-        return true;
+        // Make sure we have the correct error response and not something else
+        UniValue message = find_value( e, "message");
+        std::string errorStr = message.get_str();
+
+        if (errorStr.find("name not found") != std::string::npos)
+            return true;
+
+        LogPrintf ("unexpected nameAvailable response: %s\n", errorStr.c_str());
+        return false;
     }
 
     isExpired = find_value( res, "expired");

@@ -72,6 +72,7 @@ struct NameTableEntry
     static const int NAME_NON_EXISTING = -2;    // Dummy nHeight value for unitinialized entries
     static const int NAME_UNCONFIRMED = -3;     // Dummy nHeight value for unconfirmed name transactions
 
+    // NOTE: making this const throws warning indicating it will not be const
     bool HeightValid() { return nHeight >= 0; }
     static bool CompareHeight(int nOldHeight, int nNewHeight);    // Returns true if new height is better
 

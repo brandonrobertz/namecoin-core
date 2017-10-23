@@ -947,40 +947,30 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
         LogPrintf ("Pending Name FirstUpdate Confirms: %d\n", confirms);
 
         if ((unsigned int)confirms < MIN_FIRSTUPDATE_DEPTH)
-        {
             continue;
-        }
 
+        std::unique_ptr<WalletModel::UnlockContext> unlock_ctx;
         if (getEncryptionStatus() == Locked)
         {
-            if (QMessageBox::Yes != QMessageBox::question(this,
-                  tr("Confirm wallet unlock"),
+            if (QMessageBox::Yes != QMessageBox::question(this, tr("Confirm wallet unlock"),
                   tr("Namecoin Core is about to finalize your name registration for name <b>%1</b>, by sending name_firstupdate. If your wallet is locked, you will be prompted to unlock it. Pressing cancel will delay your name registration by one block, at which point you will be prompted again. Would you like to proceed?").arg(QString::fromStdString(name)),
-                  QMessageBox::Yes|QMessageBox::Cancel,
-                  QMessageBox::Cancel))
+                  QMessageBox::Yes|QMessageBox::Cancel, QMessageBox::Cancel))
             {
                 LogPrintf ("User cancelled wallet unlock pre-name_firstupdate. Waiting 1 block.\n");
                 return successfulNames;
             }
 
-            LogPrintf ("Attempting wallet unlock ...\n");
-            WalletModel::UnlockContext ctx(this->requestUnlock ());
-            if (!ctx.isValid ())
-            {
-                return successfulNames;
-            }
-            else
-            {
-                // NOTE: the reason we're doing this here and not at the same
-                // time as the one beneath it is because when ctx is destroyed
-                // (subsequently after leaving this block) the wallet is locked.
-                completedResult = this->completePendingNameFirstUpdate(name, rand, txid, data, toaddress);
-            }
+            Q_EMIT requireUnlock();
+            unlock_ctx.reset(new UnlockContext(this, true, true));
         }
-        else
-        {
-            completedResult = this->completePendingNameFirstUpdate(name, rand, txid, data, toaddress);
-        }
+
+        if (!unlock_ctx->isValid())
+            return successfulNames;
+
+        completedResult = this->completePendingNameFirstUpdate(name, rand, txid, data, toaddress);
+
+        // Locks wallet
+        unlock_ctx.reset(nullptr);
 
         // if we got an error on name_firstupdate. prompt user for what to do
         if (!completedResult.empty())
@@ -991,14 +981,8 @@ std::vector<std::string> WalletModel::sendPendingNameFirstUpdates()
                 .arg(QString::fromStdString(completedResult));
             // if they didnt hit yes, move onto next pending op, otherwise
             // the pending transaction will be deleted in the subsequent block
-            if (QMessageBox::Yes != QMessageBox::question(this, tr("Name registration error"),
-                                                          errorMsg,
-                                                          QMessageBox::Yes|QMessageBox::No,
-                                                          QMessageBox::No))
-            {
-                // NOTE: removing this fixes the current bug, could be a lock issue though
+            if (QMessageBox::Yes != QMessageBox::question(this, tr("Name registration error"), errorMsg, QMessageBox::Yes|QMessageBox::No, QMessageBox::No))
                 continue;
-            }
         }
 
         successfulNames.push_back(name);

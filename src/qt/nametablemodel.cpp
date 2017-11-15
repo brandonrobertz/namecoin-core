@@ -8,6 +8,7 @@
 #include "platformstyle.h"
 
 #include "names/common.h"
+#include "names/main.h"
 #include "util.h"
 #include "protocol.h"
 #include "rpc/server.h"
@@ -24,7 +25,8 @@ namespace {
     int column_alignments[] = {
         Qt::AlignLeft|Qt::AlignVCenter,     // Name
         Qt::AlignLeft|Qt::AlignVCenter,     // Value
-        Qt::AlignRight|Qt::AlignVCenter     // Expires in
+        Qt::AlignRight|Qt::AlignVCenter,    // Expires in
+        Qt::AlignRight|Qt::AlignVCenter,    // Name Sataus
     };
 }
 
@@ -101,7 +103,10 @@ public:
             {
                 std::string name = find_value ( v, "name").get_str();
                 std::string data = find_value ( v, "value").get_str();
-                vNamesO[name] = NameTableEntry(name, data, NameTableEntry::NAME_UNCONFIRMED);
+                vNamesO[name] = NameTableEntry(
+                    name, data,
+                    NameTableEntry::NAME_UNCONFIRMED,
+                    "pending confirmation");
                 LogPrintf("found pending name: name=%s\n", name.c_str());
             }
         }
@@ -127,11 +132,12 @@ public:
         {
             for (const auto& v : confirmedNames.getValues())
             {
-                //const UniValue& v = confirmedNames[idx];
+                if(find_value ( v, "expired").get_bool())
+                    continue;
                 std::string name = find_value ( v, "name").get_str();
                 std::string data = find_value ( v, "value").get_str();
                 int height = find_value ( v, "height").get_int();
-                vNamesO[name] = NameTableEntry(name, data, height);
+                vNamesO[name] = NameTableEntry(name, data, height, "confirmed");
                 LogPrintf("found confirmed name: name=%s height=%i\n", name.c_str(), height);
             }
         }
@@ -148,7 +154,8 @@ public:
             cachedNameTable.append(
                 NameTableEntry(item.first,
                                npd.getData(),
-                               NameTableEntry::NAME_NEW));
+                               NameTableEntry::NAME_NEW,
+                               "pending firstupdate"));
         }
 
         // qLowerBound() and qUpperBound() require our cachedNameTable list to be sorted in asc order
@@ -173,9 +180,29 @@ public:
     {
         LOCK(cs_main);
 
-        NameTableEntry nameObj(ValtypeToString(inName), "", NameTableEntry::NAME_NON_EXISTING);
         std::string strName = ValtypeToString(inName);
+        int lowerIndex, upperIndex;
+        bool inModel = findInModel(QString::fromStdString(strName), &lowerIndex, &upperIndex);
+        QList<NameTableEntry>::iterator lower = (cachedNameTable.begin() + lowerIndex);
 
+        std::cout << "refreshName " << strName << '\n';
+
+        // preserve previous name state if available
+        std::string strNameStatus = "";
+        std::string strData = "";
+        int height = NameTableEntry::NAME_NON_EXISTING;
+        if(inModel)
+        {
+            std::cout << "found in model\n";
+            strNameStatus = lower->nameStatus.toStdString();
+            height = lower->nHeight;
+            strData = lower->value.toStdString();
+        }
+
+        // NOTE: name_show only reflects the status of the name as it is
+        // currently existig in the chain. this means that if you issue
+        // something like a name_update and issue name_show, the name_update
+        // results will not be reflected until block confirmation
         UniValue params (UniValue::VOBJ);
         params.pushKV ("name", strName);
 
@@ -201,18 +228,63 @@ public:
             LogPrintf ("No height for name %s\n", strName.c_str());
             return;
         }
-        const int height = heightResult.get_int();
 
-        UniValue valResult = find_value(res, "value");
-        if (!valResult.isStr())
+        // we have a height, this means we either have a confirmed
+        // name_firstupdate or we have either an old or new
+        // name_update (no way to tell via name_show)
+        height = heightResult.get_int();
+        std::cout << "new height " << height << '\n';
+
+        UniValue valTxid = find_value(res, "txid");
+        if (!valTxid.isStr())
         {
-            LogPrintf ("No value for name %s\n", strName.c_str());
+            LogPrintf ("No txid for name %s\n", strName.c_str());
             return;
         }
 
-        std::string data = valResult.get_str();
+        std::string strTxid = valTxid.get_str();
 
-        nameObj = NameTableEntry(strName, data, height);
+        // get transaction and look for confirms, update name status
+        // if we have confirms
+        UniValue txparams (UniValue::VOBJ);
+        txparams.pushKV ("txid", strTxid);
+
+        JSONRPCRequest txJsonRequest;
+        txJsonRequest.strMethod = "gettransaction";
+        txJsonRequest.params = txparams;
+        txJsonRequest.fHelp = false;
+
+        std::cout << "looking up txid " << strTxid << '\n';
+
+        UniValue txRes;
+        try {
+            txRes = tableRPC.execute(txJsonRequest);
+        } catch (const UniValue& e) {
+            UniValue message = find_value(e, "message");
+            std::string errorStr = message.get_str();
+            LogPrintf ("unexpected gettransaction response on refreshName=%s: %s\n",
+                    strName.c_str(), errorStr.c_str());
+            return;
+        }
+
+        UniValue valConfirms = find_value(txRes, "confirmations");
+        if (!valConfirms.isNum())
+        {
+            LogPrintf ("No confirmations for name %s\n", strName.c_str());
+            return;
+        }
+
+        std::cout << "confirmations " << valConfirms.get_int() << '\n';
+
+        const unsigned int uConfirms = static_cast<unsigned int>(valConfirms.get_int());
+        if (uConfirms > MIN_FIRSTUPDATE_DEPTH)
+            strNameStatus = "confirmed";
+
+        // TODO: figure out if it's confirmed or not yet
+        // nameStatus = "confirmed";
+        // std::cout << "nameStatus=" << nameStatus << '\n';
+
+        NameTableEntry nameObj(strName, strData, height, strNameStatus);
 
         if(findInModel(nameObj.name))
         {
@@ -220,12 +292,12 @@ public:
             if(nameObj.nHeight != NameTableEntry::NAME_NON_EXISTING)
             {
                 LogPrintf ("refreshName result : %s - refreshed in the table\n", qPrintable(nameObj.name));
-                updateEntry(nameObj.name, nameObj.value, nameObj.nHeight, CT_UPDATED);
+                updateEntry(nameObj.name, nameObj.value, nameObj.nHeight, CT_UPDATED, nameObj.nameStatus);
             }
             else
             {
                 LogPrintf("refreshName result : %s - deleted from the table\n", qPrintable(nameObj.name));
-                updateEntry(nameObj.name, nameObj.value, nameObj.nHeight, CT_DELETED);
+                updateEntry(nameObj.name, nameObj.value, nameObj.nHeight, CT_DELETED, nameObj.nameStatus);
             }
         }
         else
@@ -234,7 +306,7 @@ public:
             if(nameObj.nHeight != NameTableEntry::NAME_NON_EXISTING)
             {
                 LogPrintf("refreshName result : %s - added to the table\n", qPrintable(nameObj.name));
-                updateEntry(nameObj.name, nameObj.value, nameObj.nHeight, CT_NEW);
+                updateEntry(nameObj.name, nameObj.value, nameObj.nHeight, CT_NEW, nameObj.nameStatus);
             }
             else
             {
@@ -243,7 +315,8 @@ public:
         }
     }
 
-    void updateEntry(const QString &name, const QString &value, int nHeight, int status, int *outNewRowIndex=nullptr)
+    void updateEntry(const QString &name, const QString &value, int nHeight,
+            int status, const QString &nameStatus, int *outNewRowIndex=nullptr)
     {
         int lowerIndex, upperIndex;
         bool inModel = findInModel(name, &lowerIndex, &upperIndex);
@@ -267,7 +340,7 @@ public:
                 break;
             }
             parent->beginInsertRows(QModelIndex(), lowerIndex, lowerIndex);
-            cachedNameTable.insert(lowerIndex, NameTableEntry(name, value, nHeight));
+            cachedNameTable.insert(lowerIndex, NameTableEntry(name, value, nHeight, nameStatus));
             parent->endInsertRows();
             if(outNewRowIndex)
                 *outNewRowIndex = parent->index(lowerIndex, 0).row();
@@ -281,6 +354,8 @@ public:
             lower->name = name;
             lower->value = value;
             lower->nHeight = nHeight;
+            std::cout << "lower->nameStatus=" << nameStatus.toStdString() << '\n';
+            lower->nameStatus = nameStatus;
             parent->emitDataChanged(lowerIndex);
             break;
         case CT_DELETED:
@@ -321,10 +396,11 @@ NameTableModel::NameTableModel(const PlatformStyle *platformStyle, CWallet* wall
         priv(new NameTablePriv(wallet, this)),
         platformStyle(platformStyle)
 {
-    columns << tr("Name") << tr("Value") << tr("Expires in");
+    columns << tr("Name") << tr("Value") << tr("Expires In") << tr("Status");
     priv->refreshNameTable();
 
     QTimer *timer = new QTimer(this);
+    // TODO: move updateExpiration from a constant timer to a legit slot
     connect(timer, SIGNAL(timeout()), this, SLOT(updateExpiration()));
     timer->start(MODEL_UPDATE_DELAY);
 
@@ -350,14 +426,18 @@ void NameTableModel::updateExpiration()
         for (int i = 0, n = priv->size(); i < n; i++)
         {
             NameTableEntry *item = priv->index(i);
-            if(!item->HeightValid())
-                continue; // Currently, unconfirmed names do not expire in the table
+            std::cout << "name=" << item->name.toStdString() << '\n';
+            std::cout << "nameStatus=" << item->nameStatus.toStdString() << '\n';
+            std::cout << "height=" << item->nHeight << '\n';
 
             const Consensus::Params& params = Params().GetConsensus();
             int nHeight = item->nHeight;
             int expirationDepth = params.rules->NameExpirationDepth(nHeight);
 
-            if(nHeight + expirationDepth <= nBestHeight)
+            priv->refreshName(ValtypeFromString(item->name.toStdString()));
+
+            // remove expired confirmed names
+            if((nHeight + expirationDepth <= nBestHeight) && (item->nameStatus == "confirmed"))
             {
                 expired.push_back(item);
             }
@@ -366,7 +446,7 @@ void NameTableModel::updateExpiration()
 
         // process all expirations in bulk (don't mutate table while iterating
         for (NameTableEntry *item : expired)
-            priv->updateEntry(item->name, item->value, item->nHeight, CT_DELETED);
+            priv->updateEntry(item->name, item->value, item->nHeight, CT_DELETED, "expired");
 
         // Invalidate expiration counter for all rows.
         // Qt is smart enough to only actually request the data for the
@@ -437,21 +517,27 @@ QVariant NameTableModel::data(const QModelIndex &index, int role) const
 
     NameTableEntry *rec = static_cast<NameTableEntry*>(index.internalPointer());
 
+    // TODO: implement Qt::ForegroudRole for font color styling for states?
+    // TODO: implement Qt::ToolTipRole show name status on tooltip
     if(role == Qt::DisplayRole || role == Qt::EditRole)
     {
         switch(index.column())
         {
-        case Name:
-            return rec->name;
-        case Value:
-            return rec->value;
-        case ExpiresIn:
-            if(!rec->HeightValid()) {
-                return QVariant();
-            }
-            int nBestHeight = chainActive.Height();
-            const Consensus::Params& params = Params().GetConsensus();
-            return rec->nHeight + params.rules->NameExpirationDepth(rec->nHeight) - nBestHeight;
+            case Name:
+                return rec->name;
+            case Value:
+                return rec->value;
+            case ExpiresIn:
+                {
+                    if(!rec->HeightValid()) {
+                        return QVariant();
+                    }
+                    int nBestHeight = chainActive.Height();
+                    const Consensus::Params& params = Params().GetConsensus();
+                    return rec->nHeight + params.rules->NameExpirationDepth(rec->nHeight) - nBestHeight;
+                }
+            case NameStatus:
+                return rec->nameStatus;
         }
     }
     return QVariant();
@@ -472,12 +558,14 @@ QVariant NameTableModel::headerData(int section, Qt::Orientation orientation, in
     {
         switch(section)
         {
-        case Name:
-            return tr("Name registered using Namecoin.");
-        case Value:
-            return tr("Data associated with the name.");
-        case ExpiresIn:
-            return tr("Number of blocks, after which the name will expire. Update name to renew it.\nEmpty cell means pending(awaiting automatic name_firstupdate or awaiting network confirmation).");
+            case Name:
+                return tr("Name registered using Namecoin.");
+
+            case Value:
+                return tr("Data associated with the name.");
+
+            case ExpiresIn:
+                return tr("Number of blocks, after which the name will expire. Update name to renew it.\nEmpty cell means pending(awaiting automatic name_firstupdate or awaiting network confirmation).");
         }
     }
     return QVariant();
@@ -494,9 +582,11 @@ Qt::ItemFlags NameTableModel::flags(const QModelIndex &index) const
 QModelIndex NameTableModel::index(int row, int column, const QModelIndex &parent /* = QModelIndex()*/) const
 {
     Q_UNUSED(parent);
-    if(priv->index(row))
+    NameTableEntry *data = priv->index(row);
+    if(data)
+    {
         return createIndex(row, column, priv->index(row));
-
+    }
     return QModelIndex();
 }
 
@@ -543,9 +633,10 @@ static void NotifyTransactionChanged(NameTableModel *ntm, CWallet *wallet, const
 
 void
 NameTableModel::updateEntry(const QString &name, const QString &value,
-                            int nHeight, int status, int *outNewRowIndex /*= NULL*/)
+                            int nHeight, int status, const QString &nameStatus,
+                            int *outNewRowIndex)
 {
-    priv->updateEntry(name, value, nHeight, status, outNewRowIndex);
+    priv->updateEntry(name, value, nHeight, status, nameStatus, outNewRowIndex);
 }
 
 void

@@ -158,7 +158,7 @@ void ManageNamesPage::on_submitNameButton_clicked()
     walletModel->writePendingNameFirstUpdate(strName, res.rand, res.hex, strData, res.toaddress);
 
     int newRowIndex;
-    model->updateEntry(name, dlg.getReturnData(), NameTableEntry::NAME_NEW, CT_NEW, &newRowIndex);
+    model->updateEntry(name, dlg.getReturnData(), NameTableEntry::NAME_NEW, CT_NEW, "pending confirm", &newRowIndex);
 
     ui->tableView->selectRow(newRowIndex);
     ui->tableView->setFocus();
@@ -220,14 +220,15 @@ void ManageNamesPage::on_configureNameButton_clicked()
     const QModelIndexList &indexes = ui->tableView->selectionModel()->selectedRows(NameTableModel::Name);
     if (indexes.isEmpty())
         return;
+    WalletModel::UnlockContext ctx(walletModel->requestUnlock ());
+    if (!ctx.isValid ())
+        return;
 
     const QModelIndex &index = indexes.at(0);
     const QString &name = index.data(Qt::EditRole).toString();
     const std::string &strName = name.toStdString();
     const QString &value = index.sibling(index.row(), NameTableModel::Value).data(Qt::EditRole).toString();
     const bool fFirstUpdate = walletModel->pendingNameFirstUpdateExists(strName);
-
-    std::cout << "fFirstUpdate " << fFirstUpdate << '\n';
 
     ConfigureNameDialog dlg(platformStyle, name, value, fFirstUpdate, this);
     dlg.setModel(walletModel);
@@ -260,7 +261,8 @@ void ManageNamesPage::on_configureNameButton_clicked()
         }
     }
 
-    model->updateEntry(name, qData, NameTableEntry::NAME_NEW, CT_UPDATED);
+    std::cout << "nameStatus=update pending\n";
+    model->updateEntry(name, qData, NameTableEntry::NAME_UNCONFIRMED, CT_UPDATED, "update pending");
 }
 
 void ManageNamesPage::on_renewNameButton_clicked ()
@@ -293,6 +295,8 @@ void ManageNamesPage::on_renewNameButton_clicked ()
         return;
 
     const QString err_msg = walletModel->nameUpdate(name, value, "");
+
+    model->updateEntry(name, value, NameTableEntry::NAME_UNCONFIRMED, CT_UPDATED, "update pending");
 
     if (err_msg.isEmpty() || err_msg == "ABORTED")
         return;

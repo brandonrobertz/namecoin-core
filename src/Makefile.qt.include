@@ -99,6 +99,7 @@ QT_FORMS_UI = \
   qt/forms/askpassphrasedialog.ui \
   qt/forms/coincontroldialog.ui \
   qt/forms/dnsdialog.ui \
+  qt/forms/dnssubdomaindialog.ui \
   qt/forms/editaddressdialog.ui \
   qt/forms/helpmessagedialog.ui \
   qt/forms/intro.ui \
@@ -132,6 +133,7 @@ QT_MOC_CPP = \
   qt/moc_configurenamedialog.cpp \
   qt/moc_csvmodelwriter.cpp \
   qt/moc_dnsdialog.cpp \
+  qt/moc_dnssubdomaindialog.cpp \
   qt/moc_editaddressdialog.cpp \
   qt/moc_guiutil.cpp \
   qt/moc_intro.cpp \
@@ -206,6 +208,7 @@ BITCOIN_QT_H = \
   qt/csvmodelwriter.h \
   qt/configurenamedialog.h \
   qt/dnsdialog.h \
+  qt/dnssubdomaindialog.h \
   qt/editaddressdialog.h \
   qt/guiconstants.h \
   qt/guiutil.h \
@@ -342,6 +345,7 @@ BITCOIN_QT_WALLET_CPP = \
   qt/coincontroltreewidget.cpp \
   qt/configurenamedialog.cpp \
   qt/dnsdialog.cpp \
+  qt/dnssubdomaindialog.cpp \
   qt/editaddressdialog.cpp \
   qt/managenamespage.cpp \
   qt/nametablemodel.cpp \

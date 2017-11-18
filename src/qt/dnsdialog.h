@@ -37,6 +37,9 @@ private:
     WalletModel *walletModel;
     const QString name;
     const QString data;
+
+private Q_SLOTS:
+    void launchSubDomainDialog();
 };
 
 #endif // DNSDIALOG_H

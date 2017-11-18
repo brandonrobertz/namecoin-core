@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>DNSSubDomain</class>
- <widget class="QDialog" name="DNSSubDomain">
+ <class>DNSSubDomainDialog</class>
+ <widget class="QDialog" name="DNSSubDomainDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -63,7 +63,7 @@
   <connection>
    <sender>btnAdd</sender>
    <signal>accepted()</signal>
-   <receiver>DNSSubDomain</receiver>
+   <receiver>DNSSubDomainDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -79,7 +79,7 @@
   <connection>
    <sender>btnAdd</sender>
    <signal>rejected()</signal>
-   <receiver>DNSSubDomain</receiver>
+   <receiver>DNSSubDomainDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

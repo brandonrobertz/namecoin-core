@@ -1,6 +1,7 @@
 #include "dnsdialog.h"
 #include "ui_dnsdialog.h"
 
+#include "dnssubdomaindialog.h"
 #include "names/main.h"
 #include "platformstyle.h"
 #include "wallet/wallet.h"
@@ -22,6 +23,7 @@ DNSDialog::DNSDialog(const PlatformStyle *platformStyle,
     // TODO: add all subdomains here, select tld by default
     ui->comboDomain->addItem(fmtDotBit(name));
     ui->comboDomain->addItem(Ui::AddSubdomain);
+    connect(ui->comboDomain, SIGNAL(currentIndexChanged(int)), this, SLOT(launchSubDomainDialog()));
 }
 
 DNSDialog::~DNSDialog()
@@ -46,4 +48,20 @@ void DNSDialog::accept()
 void DNSDialog::setModel(WalletModel *walletModel)
 {
     this->walletModel = walletModel;
+}
+
+void DNSDialog::launchSubDomainDialog()
+{
+    if(ui->comboDomain->currentText() != Ui::AddSubdomain)
+        return;
+
+    DNSSubDomainDialog dlg(platformStyle, name, this);
+    if (dlg.exec() != QDialog::Accepted)
+        ui->comboDomain->setCurrentIndex(0);
+
+    std::cout << "NEW " << dlg.getReturnData().toStdString() << '\n';
+
+    int index = ui->comboDomain->findData(dlg.getReturnData());
+    if (index != -1)
+        ui->comboDomain->setCurrentIndex(index);
 }

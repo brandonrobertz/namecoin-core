@@ -32,6 +32,7 @@ public Q_SLOTS:
     void accept() override;
     void on_addressBookButton_clicked();
     void on_pasteButton_clicked();
+    void on_btnDNSEditor_clicked();
 
 private:
     Ui::ConfigureNameDialog *ui;

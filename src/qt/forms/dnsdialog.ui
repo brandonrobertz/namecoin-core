@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>DomainNameDialog</class>
- <widget class="QDialog" name="DomainNameDialog">
+ <class>DNSDialog</class>
+ <widget class="QDialog" name="DNSDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -27,13 +27,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="comboDomain">
-       <item>
-        <property name="text">
-         <string>- Create Subdomain</string>
-        </property>
-       </item>
-      </widget>
+      <widget class="QComboBox" name="comboDomain"/>
      </item>
     </layout>
    </item>

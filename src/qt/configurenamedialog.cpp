@@ -2,6 +2,7 @@
 #include "ui_configurenamedialog.h"
 
 #include "addressbookpage.h"
+#include "dnsdialog.h"
 #include "guiutil.h"
 #include "names/main.h"
 #include "platformstyle.h"
@@ -125,4 +126,12 @@ void ConfigureNameDialog::on_addressBookButton_clicked()
     dlg.setModel(walletModel->getAddressTableModel());
     if (dlg.exec())
         ui->transferTo->setText(dlg.getReturnValue());
+}
+
+void ConfigureNameDialog::on_btnDNSEditor_clicked()
+{
+    // follow AddressbookPage and paste results into text if accepted
+    const QString nameData = ui->dataEdit->text();
+    DNSDialog dlg(platformStyle, name, nameData, this);
+    dlg.exec();
 }

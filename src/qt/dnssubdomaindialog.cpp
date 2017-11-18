@@ -29,14 +29,14 @@ const QString DNSSubDomainDialog::fmtDotBit(const QString name)
     return QString(name.mid(2) + ".bit");
 }
 
-void DNSSubDomainDialog::accept()
-{
-    // TODO: figure out if we even need walletmodel
-    if (!walletModel)
-        return;
-    // TODO: validate size & spec
-    QDialog::accept();
-}
+// void DNSSubDomainDialog::accept()
+// {
+//     // TODO: figure out if we even need walletmodel
+//     if (!walletModel)
+//         return;
+//     // TODO: validate size & spec
+//     QDialog::accept();
+// }
 
 void DNSSubDomainDialog::setModel(WalletModel *walletModel)
 {

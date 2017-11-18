@@ -27,8 +27,8 @@ public:
     const QString fmtDotBit(const QString name);
     const QString getReturnData();
 
-public Q_SLOTS:
-    void accept() override;
+// public Q_SLOTS:
+//     void accept() override;
 
 private:
     Ui::DNSSubDomainDialog *ui;

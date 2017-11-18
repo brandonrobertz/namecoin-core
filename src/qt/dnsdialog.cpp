@@ -36,15 +36,6 @@ const QString DNSDialog::fmtDotBit(const QString name)
     return QString(name.mid(2) + ".bit");
 }
 
-void DNSDialog::accept()
-{
-    // TODO: figure out if we even need walletmodel
-    if (!walletModel)
-        return;
-    // TODO: validate size & spec
-    QDialog::accept();
-}
-
 void DNSDialog::setModel(WalletModel *walletModel)
 {
     this->walletModel = walletModel;
@@ -57,11 +48,17 @@ void DNSDialog::launchSubDomainDialog()
 
     DNSSubDomainDialog dlg(platformStyle, name, this);
     if (dlg.exec() != QDialog::Accepted)
+    {
         ui->comboDomain->setCurrentIndex(0);
+        return;
+    }
 
-    std::cout << "NEW " << dlg.getReturnData().toStdString() << '\n';
+    const QString subDomain = dlg.getReturnData();
+    const QString fullName = subDomain + "." + name.mid(2) + ".bit";
 
-    int index = ui->comboDomain->findData(dlg.getReturnData());
-    if (index != -1)
-        ui->comboDomain->setCurrentIndex(index);
+    int size = ui->comboDomain->count();
+    // set to ix zero so we don't re-pop subdomain modal upon insert/select
+    ui->comboDomain->setCurrentIndex(0);
+    ui->comboDomain->insertItem(size - 1, fullName);
+    ui->comboDomain->setCurrentIndex(size - 1);
 }

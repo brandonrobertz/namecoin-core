@@ -238,7 +238,7 @@
               <string/>
              </property>
              <property name="placeholderText">
-              <string>e.g., @, namecoin.bit.</string>
+              <string>e.g., namecoin.bit.</string>
              </property>
             </widget>
            </item>
@@ -280,7 +280,7 @@
        <item>
         <widget class="QLabel" name="labelSOARPDesc">
          <property name="text">
-          <string>Hostmaster e-mail address. (This is recommended at the domain level and will be inserted into the SOA record of DNS bridges.)</string>
+          <string>Domain holder e-mail address and/or information. (This is recommended at the domain level and will be inserted into the SOA record of DNS bridges.)</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
@@ -288,11 +288,36 @@
         </widget>
        </item>
        <item>
-        <widget class="QValidatedLineEdit" name="editSOARPEmail">
-         <property name="placeholderText">
-          <string>e.g., email@host.domain</string>
-         </property>
-        </widget>
+        <layout class="QVBoxLayout" name="verticalLayout_19">
+         <item>
+          <widget class="QLabel" name="labelSOARPEmail">
+           <property name="text">
+            <string>Email</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QValidatedLineEdit" name="editSOARPEmail">
+           <property name="placeholderText">
+            <string>e.g., email@host.domain</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="labelSOARPInfo">
+           <property name="text">
+            <string>Info</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="editSOARPInfo">
+           <property name="placeholderText">
+            <string>e.g., Example Name</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_4">
@@ -379,7 +404,7 @@
        <item>
         <widget class="QLabel" name="labelNSDesc">
          <property name="text">
-          <string>Array of master nameservers of the configured domain, which can be either IPs or absolute domain names. Note that this delegates all IP related responsibility of this domain and its sub-domains to the master server, effectively bypassing other settings (e.g. ip). </string>
+          <string>Array of master nameservers of the configured domain, which can be either IPs or absolute domain names. Note that this delegates all IP related responsibility of this domain and its sub-domains to the master server, effectively bypassing other settings (e.g. ip). Multiple servers must be comma separated and absolute domains must end in a dot (.).</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>
@@ -389,7 +414,7 @@
        <item>
         <widget class="QValidatedLineEdit" name="editNSHosts">
          <property name="placeholderText">
-          <string>multiple servers comma separated e.g., ns.myserver.net, 192.168.3.4</string>
+          <string>e.g., ns1.myserver.net.</string>
          </property>
         </widget>
        </item>
@@ -590,6 +615,54 @@
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_15">
          <item>
+          <layout class="QVBoxLayout" name="verticalLayout_25">
+           <item>
+            <widget class="QLabel" name="labelTLSProto">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Proto</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="editTLSProto">
+             <property name="placeholderText">
+              <string>e.g., tcp</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_18">
+           <item>
+            <widget class="QLabel" name="labelTLSPort">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Port</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="editTLSPort">
+             <property name="placeholderText">
+              <string>e.g., 443</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
           <layout class="QVBoxLayout" name="verticalLayout_13">
            <item>
             <widget class="QLabel" name="labelTLSCertUsage">
@@ -660,9 +733,6 @@
             </widget>
            </item>
           </layout>
-         </item>
-         <item>
-          <layout class="QVBoxLayout" name="verticalLayout_18"/>
          </item>
         </layout>
        </item>

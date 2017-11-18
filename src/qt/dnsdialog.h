@@ -28,9 +28,6 @@ public:
     void setModel(WalletModel *walletModel);
     const QString fmtDotBit(const QString name);
 
-public Q_SLOTS:
-    void accept() override;
-
 private:
     Ui::DNSDialog *ui;
     const PlatformStyle *platformStyle;

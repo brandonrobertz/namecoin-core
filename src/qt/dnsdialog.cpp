@@ -21,7 +21,7 @@ DNSDialog::DNSDialog(const PlatformStyle *platformStyle,
     ui->setupUi(this);
     // TODO: add all subdomains here, select tld by default
     ui->comboDomain->addItem(fmtDotBit(name));
-    ui->comboDomain->addItem("Add Subdomain ...");
+    ui->comboDomain->addItem(Ui::AddSubdomain);
 }
 
 DNSDialog::~DNSDialog()

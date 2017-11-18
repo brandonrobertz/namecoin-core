@@ -7,6 +7,7 @@
 
 namespace Ui {
     class DNSDialog;
+    const QString AddSubdomain = "Add Subdomain...";
 }
 
 class WalletModel;

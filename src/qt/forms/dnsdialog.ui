@@ -117,6 +117,11 @@
                <string>I2P</string>
               </property>
              </item>
+             <item>
+              <property name="text">
+               <string>ZeroNet</string>
+              </property>
+             </item>
             </widget>
            </item>
           </layout>
@@ -404,7 +409,7 @@
        <item>
         <widget class="QLabel" name="labelNSDesc">
          <property name="text">
-          <string>Array of master nameservers of the configured domain, which can be either IPs or absolute domain names. Note that this delegates all IP related responsibility of this domain and its sub-domains to the master server, effectively bypassing other settings (e.g. ip). Multiple servers must be comma separated and absolute domains must end in a dot (.).</string>
+          <string>List of master nameservers of the configured domain. Note that this delegates all IP related responsibility of this domain and its sub-domains to the master server, effectively bypassing other settings (e.g. A records). Multiple servers must be comma separated and absolute domains must end in a dot (.). IP addresses are not allowed.</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>

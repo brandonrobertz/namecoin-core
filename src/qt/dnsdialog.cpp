@@ -2,6 +2,7 @@
 #include "ui_dnsdialog.h"
 
 #include "dnssubdomaindialog.h"
+#include "dnsspectypes.h"
 #include "names/main.h"
 #include "platformstyle.h"
 #include "wallet/wallet.h"
@@ -20,9 +21,14 @@ DNSDialog::DNSDialog(const PlatformStyle *platformStyle,
     data(_data)
 {
     ui->setupUi(this);
+
     // TODO: add all subdomains here, select tld by default
     ui->comboDomain->addItem(fmtDotBit(name));
     ui->comboDomain->addItem(Ui::AddSubdomain);
+
+    // TODO: initialize from json
+    Domain domain(_name, Domain::TopLevel);
+    domain.load(data);
     connect(ui->comboDomain, SIGNAL(currentIndexChanged(int)), this, SLOT(launchSubDomainDialog()));
 }
 

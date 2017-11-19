@@ -2,70 +2,13 @@
 #define DNSSPECTYPES_H
 
 #include <QJsonObject>
+#include <QList>
+#include <QMap>
 #include <QString>
 
 #define ADD_JSON_SERIALIZE_METHODS       \
     void read(const QJsonObject &json);  \
     void write(QJsonObject &json) const;
-
-/**
- * Domain type, container for top level domains and mappable
- * subdomains
- *     type enum {topLevel, subDomain}
- *     name: QString (add role formatters)
- *     readJson, writeJson
- *
- * map to be implemented as nested Domain objects (under topLevel)
- *      "map": {
- *          "www" : { "alias": "" },
- *          "ftp" : { "ip": ["10.2.3.4", "10.4.3.2"] },
- *          "mail": { "ns": ["ns1.host.net", "ns12.host.net"] }
- *      }
- */
-class Domain
-{
-public:
-    enum DomainType {
-        TopLevel, SubDomain
-    };
-    explicit Domain(const QString &name, DomainType type);
-
-    const QString &getName() const;
-    void setName(const QString &name);
-
-    A &getA() const;
-    CNAME &getCNAME() const;
-    SOARP &getSOARP() const;
-    DNAME &getDNAME() const;
-    NS &getNS() const;
-    DS &getDS() const;
-    TLS &getTLS() const;
-    SRV &getSRV() const;
-    TXT &getTXT() const;
-    IMPORT &getIMPORT() const;
-    SSHFP &getSSHFP() const;
-
-    // these set up recursive maps
-    Domain &getSubdomain(const QString &name);
-    void setSubdomain(const QString &name);
-
-    ADD_JSON_SERIALIZE_METHODS;
-private:
-    A a;
-    CNAME cname;
-    SOARP soarp;
-    DNAME dname;
-    NS ns;
-    DS ds;
-    TLS tls;
-    SRV srv;
-    TXT txt;
-    IMPORT import;
-    SSHFP sshfp;
-    QString name;
-    // subdomainName -> Domain
-    QMap<QString, Domain> subdomains;
-};
 
 /**
  * A/AAAA record.
@@ -90,6 +33,7 @@ public:
     ADD_JSON_SERIALIZE_METHODS;
 private:
     QString host;
+    ResourceType type;
 };
 
 /**
@@ -229,7 +173,7 @@ public:
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    TLSRecords records;
+    TLSRecords tlsRecords;
 };
 
 /**
@@ -322,6 +266,70 @@ public:
     ADD_JSON_SERIALIZE_METHODS;
 private:
     QList<SSHFPRecord> fingerprints;
+};
+
+/**
+ * Domain type, container for top level domains and mappable
+ * subdomains
+ *     type enum {topLevel, subDomain}
+ *     name: QString (add role formatters)
+ *     readJson, writeJson
+ *
+ * map to be implemented as nested Domain objects (under topLevel)
+ *      "map": {
+ *          "www" : { "alias": "" },
+ *          "ftp" : { "ip": ["10.2.3.4", "10.4.3.2"] },
+ *          "mail": { "ns": ["ns1.host.net", "ns12.host.net"] }
+ *      }
+ */
+class Domain
+{
+public:
+    enum DomainType {
+        TopLevel, SubDomain
+    };
+    explicit Domain(const QString &name, DomainType type);
+
+    const QString &getName() const;
+    void setName(const QString &name);
+    void load(const QString &name);
+
+    const A &getA() const { return a; };
+    const CNAME &getCNAME() const { return cname; };
+    const SOARP &getSOARP() const { return soarp; };
+    const DNAME &getDNAME() const { return dname; };
+    const NS &getNS() const { return ns; };
+    const DS &getDS() const { return ds; };
+    const TLS &getTLS() const { return tls; };
+    const SRV &getSRV() const { return srv; };
+    const TXT &getTXT() const { return txt; };
+    const IMPORT &getIMPORT() const { return import; };
+    const SSHFP &getSSHFP() const { return sshfp; };
+
+    // these set up recursive maps
+    const Domain &getSubdomain(const QString &name);
+    void setSubdomain(const QString &name);
+
+    ADD_JSON_SERIALIZE_METHODS;
+private:
+    // domain properties
+    QString name;
+    DomainType type;
+
+    // fields
+    A a;
+    CNAME cname;
+    SOARP soarp;
+    DNAME dname;
+    NS ns;
+    DS ds;
+    TLS tls;
+    SRV srv;
+    TXT txt;
+    IMPORT import;
+    SSHFP sshfp;
+    // subdomainName -> Domain
+    QMap<QString, Domain> subdomains;
 };
 
 #endif // DNSSPECTYPES_H

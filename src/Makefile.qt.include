@@ -208,6 +208,7 @@ BITCOIN_QT_H = \
   qt/csvmodelwriter.h \
   qt/configurenamedialog.h \
   qt/dnsdialog.h \
+  qt/dnsspectypes.h \
   qt/dnssubdomaindialog.h \
   qt/editaddressdialog.h \
   qt/guiconstants.h \
@@ -345,6 +346,7 @@ BITCOIN_QT_WALLET_CPP = \
   qt/coincontroltreewidget.cpp \
   qt/configurenamedialog.cpp \
   qt/dnsdialog.cpp \
+  qt/dnsspectypes.cpp \
   qt/dnssubdomaindialog.cpp \
   qt/editaddressdialog.cpp \
   qt/managenamespage.cpp \

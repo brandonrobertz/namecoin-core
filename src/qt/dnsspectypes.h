@@ -33,12 +33,32 @@ public:
     QString name() const;
     void setName(const QString &name);
 
-    void read(const QJsonObject &json);
-    void write(QJsonObject &json) const;
+    const A &a() const;
+    const CNAME &cname() const;
+    const SOARP &soarp() const;
+    const DNAME &dname() const;
+    const NS &ns() const;
+    const DS &ds() const;
+    const TLS &tls() const;
+    const SRV &srv() const;
+    const TXT &txt() const;
+    const IMPORT &import() const;
+    const SSHFP &sshfp() const;
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QString name;
+    A _a;
+    CNAME _cname;
+    SOARP _soarp;
+    DNAME _dname;
+    NS _ns;
+    DS _ds;
+    TLS _tls;
+    SRV _srv;
+    TXT _txt;
+    IMPORT _import;
+    SSHFP _sshfp;
+    QString _name;
 }
 
 /**
@@ -81,7 +101,7 @@ public:
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QString host;
+    QString _host;
 }
 
 /**
@@ -103,8 +123,8 @@ public:
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QString email;
-    QString info;
+    QString _email;
+    QString _info;
 }
 
 /**
@@ -122,7 +142,7 @@ public:
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QString host;
+    QString _host;
 }
 
 /**
@@ -142,7 +162,7 @@ public:
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QList<QString> hosts;
+    QList<QString> _hosts;
 }
 
 /**
@@ -150,20 +170,28 @@ private:
  *     "ds": [[12345,8,1,"EfatjsUqKYSrqv18O1FlA3hcIHI="],
  *            [12345,8,2,"LXEWQrcmsEQBYnyp+6wy9chTD7GQPMTbAiWHF5IaSIE="]]
  */
+
 class DS
 {
 public:
-    explicit DS();
-    // TODO: reconsider this format
-    explicit DS(QList<QList<QString>> records);
+    struct DSRecord
+    {
+        int keyTag;
+        int algorithm;
+        int hashType;
+        QString hash;
+    };
 
-    QList<QList<QString>> records() const;
-    void addRecord(QList<QString> record);
+    explicit DS();
+    explicit DS(QList<DSRecord> records);
+
+    QList<DSRecord> records() const;
+    void addRecord(DSRecord record);
     void removeRecord(int index);
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QList<QList<QString>> records;
+    QList<DSRecord> _records;
 }
 
 /**
@@ -172,8 +200,6 @@ private:
  *     "tcp": {
  *       "443": [ [1, "660008F91...D7621B787", 1] ],
  *       "25": [ [1, "660008F91...D7621B787", 1] ]
- *     }
- *   }
  */
 class TLS
 {
@@ -185,7 +211,7 @@ public:
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QMap tlsRecords;
+    QMap _tlsRecords;
 }
 
 /**
@@ -195,14 +221,24 @@ private:
 class SRV
 {
 public:
-    explicit SRV();
-    explicit SRV(QList<QList<QString>> records);
+    struct SRVRecord
+    {
+        int priority;
+        int weight;
+        int port;
+        QString host;
+    };
 
-    QList<QList<QString>> records() const;
+    explicit SRV();
+    explicit SRV(QList<SRVRecord> records);
+
+    QList<SRVRecord> records() const;
+    void addRecord(SRVRecord record);
+    void removeRecord(int index);
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QList<QList<QString>> records;
+    QList<SRVRecord> _records;
 }
 
 /**
@@ -220,7 +256,7 @@ public:
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QString data;
+    QString _data;
 }
 
 /**
@@ -239,7 +275,7 @@ public:
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QList<QString> imports;
+    QList<QString> _imports;
 }
 
 /**
@@ -249,16 +285,23 @@ private:
 class SSHFP
 {
 public:
-    explicit SSHFP();
-    explicit SSHFP(QList<QList<QString>> fingerprints);
+    struct SSHFPRecord
+    {
+        int algorithm;
+        int fingerprintType;
+        QString fingerprint;
+    };
 
-    QList<QList<QString>> fingerprints() const;
-    void addRecord(QList<QString> fingerprint);
+    explicit SSHFP();
+    explicit SSHFP(QList<SSHFPRecord> fingerprints);
+
+    QList<SSHFPRecord> fingerprints() const;
+    void addRecord(SSHFPRecord fingerprint);
     void removeRecord(int index);
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
-    QList<QList<QString>> fingerprints;
+    QList<SSHFPRecord> _fingerprints;
 }
 
 #endif // DNSSPECTYPES_H

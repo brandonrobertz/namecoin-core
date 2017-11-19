@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Options</string>
+   <string>DNS Builder</string>
   </property>
   <property name="modal">
    <bool>true</bool>
@@ -358,7 +358,7 @@
        <item>
         <widget class="QLabel" name="labelDNAMEDesc">
          <property name="text">
-          <string>Specifies that all subdomains of this name are translated to the given String before lookup. As with CNAME, absolute domain names end with a dot (.).</string>
+          <string>Specifies that all subdomains of this name are translated to the given string before lookup. As with CNAME, absolute domain names end with a dot (.).</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>

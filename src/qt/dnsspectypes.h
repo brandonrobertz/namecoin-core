@@ -27,8 +27,8 @@ public:
     explicit A();
     explicit A(const QString &host, ResourceType type);
 
-    const QString &getHost() const;
-    void setHost(const QString &host);
+    const QString &getHost() const { return host; };
+    void setHost(const QString &_host);
 
     ADD_JSON_SERIALIZE_METHODS;
 private:
@@ -292,22 +292,22 @@ public:
 
     const QString &getName() const;
     void setName(const QString &name);
-    void load(const QString &name);
+    bool load(const QString &name, QString *error = nullptr);
 
-    const A &getA() const { return a; };
-    const CNAME &getCNAME() const { return cname; };
-    const SOARP &getSOARP() const { return soarp; };
-    const DNAME &getDNAME() const { return dname; };
-    const NS &getNS() const { return ns; };
-    const DS &getDS() const { return ds; };
-    const TLS &getTLS() const { return tls; };
-    const SRV &getSRV() const { return srv; };
-    const TXT &getTXT() const { return txt; };
-    const IMPORT &getIMPORT() const { return import; };
-    const SSHFP &getSSHFP() const { return sshfp; };
+    A      *getA() const { return a; };
+    CNAME  *getCNAME() const { return cname; };
+    SOARP  *getSOARP() const { return soarp; };
+    DNAME  *getDNAME() const { return dname; };
+    NS     *getNS() const { return ns; };
+    DS     *getDS() const { return ds; };
+    TLS    *getTLS() const { return tls; };
+    SRV    *getSRV() const { return srv; };
+    TXT    *getTXT() const { return txt; };
+    IMPORT *getIMPORT() const { return import; };
+    SSHFP  *getSSHFP() const { return sshfp; };
 
     // these set up recursive maps
-    const Domain &getSubdomain(const QString &name);
+    Domain *getSubdomain(const QString &name);
     void setSubdomain(const QString &name);
 
     ADD_JSON_SERIALIZE_METHODS;
@@ -317,19 +317,19 @@ private:
     DomainType type;
 
     // fields
-    A a;
-    CNAME cname;
-    SOARP soarp;
-    DNAME dname;
-    NS ns;
-    DS ds;
-    TLS tls;
-    SRV srv;
-    TXT txt;
-    IMPORT import;
-    SSHFP sshfp;
+    A      *a;
+    CNAME  *cname;
+    SOARP  *soarp;
+    DNAME  *dname;
+    NS     *ns;
+    DS     *ds;
+    TLS    *tls;
+    SRV    *srv;
+    TXT    *txt;
+    IMPORT *import;
+    SSHFP  *sshfp;
     // subdomainName -> Domain
-    QMap<QString, Domain> subdomains;
+    QMap<QString, Domain> *subdomains;
 };
 
 #endif // DNSSPECTYPES_H

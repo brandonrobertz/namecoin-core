@@ -1,6 +1,6 @@
 #include "dnsspectypes.h"
 
-#include <iostream>
+#include <iostream> // std::cout
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -43,31 +43,35 @@ SSHFP::SSHFP(QList<SSHFPRecord> _fingerprints) : fingerprints(_fingerprints) {};
 Domain::Domain(const QString &_name, DomainType _type) :
     name(_name), type(_type)
 {
-    a = A();
-    cname = CNAME();
-    soarp = SOARP();
-    dname = DNAME();
-    ns = NS();
-    ds = DS();
-    tls = TLS();
-    srv = SRV();
-    txt = TXT();
-    import = IMPORT();
-    sshfp = SSHFP();
+    a =      new A();
+    cname =  new CNAME();
+    soarp =  new SOARP();
+    dname =  new DNAME();
+    ns =     new NS();
+    ds =     new DS();
+    tls =    new TLS();
+    srv =    new SRV();
+    txt =    new TXT();
+    import = new IMPORT();
+    sshfp =  new SSHFP();
     // subdomainName -> Domain
     QMap<QString, Domain> subdomains = QMap<QString, Domain>();
 };
 
-void Domain::load(const QString &data)
+bool Domain::load(const QString &data, QString *error)
 {
     std::cout << "DATA " << data.toStdString() << '\n';
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(QByteArray(data.toStdString().c_str()), &error);
-    if (error.error == QJsonParseError::NoError)
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(QByteArray(data.toStdString().c_str()), &parseError);
+    if (parseError.error == QJsonParseError::NoError)
+    {
         std::cout << "Successful JSON parse!\n";
+        return true;
+    }
     else
-        std::cout << "JSON ERROR " << error.errorString().toStdString() << '\n';
+        std::cout << "JSON ERROR " << parseError.errorString().toStdString() << '\n';
     QJsonObject json = doc.object();
+    return false;
 }
 
 // Domain::read(const QJsonObject &json)

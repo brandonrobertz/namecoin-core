@@ -29,6 +29,19 @@ DNSDialog::DNSDialog(const PlatformStyle *platformStyle,
     // TODO: initialize from json
     Domain domain(_name, Domain::TopLevel);
     domain.load(data);
+    if (domain.getA() && !domain.getA()->getHost().isEmpty())
+    {
+        std::cout << "gotA and getHost\n";
+        const QString host = domain.getA()->getHost();
+        std::cout << "1 A.host Empty? " << host.isEmpty() << '\n';
+    }
+    else
+    {
+        std::cout << "not gotA or not getHost\n";
+        domain.getA()->setHost("lol");
+        const QString host = domain.getA()->getHost();
+        std::cout << "2 A.host Empty? " << host.isEmpty() << '\n';
+    }
     connect(ui->comboDomain, SIGNAL(currentIndexChanged(int)), this, SLOT(launchSubDomainDialog()));
 }
 
